@@ -127,21 +127,21 @@ echo "SPIRE setup complete. Registering expected workloads"
 $SPIRE_CMD entry create \
   -spiffeID spiffe://openziti/jwtServer \
   -parentID spiffe://openziti/ids \
-  -dns jwt.local.server \
+  -dns domath.ziti \
   -dns localhost \
   -selector unix:path:${TMP_DIR}/spire-server
 
 $SPIRE_CMD entry create \
   -spiffeID spiffe://openziti/jwtServer \
   -parentID spiffe://openziti/ids \
-  -dns jwt.local.server \
+  -dns domath.ziti \
   -dns localhost \
   -selector unix:path:${TMP_DIR}/openziti-server
 
 $SPIRE_CMD entry create \
   -spiffeID spiffe://openziti/jwtServer \
   -parentID spiffe://openziti/ids \
-  -dns jwt.local.server \
+  -dns domath.ziti \
   -dns localhost \
   -selector unix:path:${TMP_DIR}/spire-and-openziti-server
 
@@ -194,7 +194,7 @@ signer=$(${TMP_DIR}/ziti/ziti edge create ext-jwt-signer zpire-ext-jwt zpire -u 
 authPolicy=$(${TMP_DIR}/ziti/ziti edge create auth-policy zpire-auth-policy --primary-ext-jwt-allowed --primary-ext-jwt-allowed-signers ${signer})
 ${TMP_DIR}/ziti/ziti edge create identity service zpire-jwtClient --auth-policy $authPolicy --external-id "spiffe://openziti/jwtClient" -a secure-service-dialers
 ${TMP_DIR}/ziti/ziti edge create identity service zpire-jwtServer --auth-policy $authPolicy --external-id "spiffe://openziti/jwtServer" -a secure-service-binders
-${TMP_DIR}/ziti/ziti edge create config secure-service-intercept.v1 intercept.v1 '{"protocols":["tcp"],"addresses":["jwt.local.server"], "portRanges":[{"low":443, "high":443}]}'
+${TMP_DIR}/ziti/ziti edge create config secure-service-intercept.v1 intercept.v1 '{"protocols":["tcp"],"addresses":["domath.ziti"], "portRanges":[{"low":443, "high":443}]}'
 ${TMP_DIR}/ziti/ziti edge create service secure-service --configs secure-service-intercept.v1 -a secure-service-binders
 ${TMP_DIR}/ziti/ziti edge create service-policy secure-service-binder Bind --service-roles '@secure-service' --identity-roles '#secure-service-binders'
 ${TMP_DIR}/ziti/ziti edge create service-policy secure-service-dialer Dial --service-roles '@secure-service' --identity-roles '#secure-service-dialers'
