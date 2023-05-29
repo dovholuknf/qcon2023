@@ -50,3 +50,16 @@ The script has the following dependencies:
 
 
 ## Cleaning Up
+
+The script has within it all the cleanup steps you need. This will come down to:
+* stopping `docker compose`:
+
+      `docker compose -f $TMP_DIR/docker-compose.yml --env-file=$TMP_DIR/.env -p qcon2023 down -v`
+
+* stopping the SPIRE server, agent and oidc-discovery-provider:
+
+      sudo killall spire-server
+      sudo killall spire-agent
+      sudo killall oidc-discovery-provider
+
+* Removing any related identities from your locally running tunneler (if any)
