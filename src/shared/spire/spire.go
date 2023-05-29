@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"github.com/dovholuknf/qcon2023/shared/common"
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
 	"github.com/spiffe/go-spiffe/v2/spiffetls/tlsconfig"
 	"github.com/spiffe/go-spiffe/v2/svid/jwtsvid"
@@ -44,7 +45,7 @@ func SecureWithSpireJwt(ctx context.Context, handlerFunc http.HandlerFunc) http.
 
 	auth := &authenticator{
 		jwtSource: jwtSource,
-		audiences: []string{"spiffe://openziti/jwtServer"},
+		audiences: []string{common.SpiffeServerId},
 	}
 	return auth.authenticateClient(handlerFunc)
 }
@@ -70,7 +71,7 @@ func (a *authenticator) authenticateClient(next http.Handler) http.Handler {
 			return
 		}
 		req = req.WithContext(withSVIDClaims(req.Context(), svid.Claims))
-		expectedId := "spiffe://openziti/jwtClient"
+		expectedId := common.SpiffeClientId
 		if svid.Claims["sub"] != expectedId {
 			log.Printf("sub mismatch. expected: %s, got %s", expectedId, svid.Claims["sub"])
 			http.Error(w, "Unauthorized", http.StatusUnauthorized)
@@ -105,7 +106,7 @@ func CreateSpiffeEnabledTlsConfig(ctx context.Context, opts workloadapi.SourceOp
 
 	// Create a `tls.Config` with configuration to allow TLS communication, and verify that presented certificate
 	//from server has SPIFFE ID `spiffe://openziti/jwtServer`
-	serverID := spiffeid.RequireFromString("spiffe://openziti/jwtServer")
+	serverID := spiffeid.RequireFromString(common.SpiffeServerId)
 	return tlsconfig.TLSClientConfig(x509Source, tlsconfig.AuthorizeID(serverID))
 }
 

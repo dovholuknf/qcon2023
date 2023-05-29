@@ -7,6 +7,9 @@ TMP_DIR=/tmp/dovholuknf/qcon2023
 SPIRE_VERSION=1.6.4
 SPIRE_CMD=${TMP_DIR}/spire-${SPIRE_VERSION}/bin/spire-server
 OPENZITI_VER=0.28.0
+SPIFFE_CLIENT_ID=spiffe://openziti/jwtClient
+SPIFFE_SERVER_ID=spiffe://openziti/jwtServer
+ETH0_IP=$(ip addr show eth0 | grep "inet\b" | awk '{print $2}' | cut -d/ -f1)
 #
 ###################################################
 echo "------------------------------------------"
@@ -125,7 +128,7 @@ bin/oidc-discovery-provider -config conf/oidc-discovery-provider/oidc-discovery-
 echo "SPIRE setup complete. Registering expected workloads"
 
 $SPIRE_CMD entry create \
-  -spiffeID spiffe://openziti/jwtServer \
+  -spiffeID ${SPIFFE_SERVER_ID} \
   -parentID spiffe://openziti/ids \
   -dns openziti.ziti \
   -dns openziti.spire.ziti \
@@ -133,7 +136,7 @@ $SPIRE_CMD entry create \
   -selector unix:path:${TMP_DIR}/spire-server
 
 $SPIRE_CMD entry create \
-  -spiffeID spiffe://openziti/jwtServer \
+  -spiffeID ${SPIFFE_SERVER_ID} \
   -parentID spiffe://openziti/ids \
   -dns openziti.ziti \
   -dns openziti.spire.ziti \
@@ -141,7 +144,7 @@ $SPIRE_CMD entry create \
   -selector unix:path:${TMP_DIR}/openziti-server
 
 $SPIRE_CMD entry create \
-  -spiffeID spiffe://openziti/jwtServer \
+  -spiffeID ${SPIFFE_SERVER_ID} \
   -parentID spiffe://openziti/ids \
   -dns openziti.ziti \
   -dns openziti.spire.ziti \
@@ -149,17 +152,17 @@ $SPIRE_CMD entry create \
   -selector unix:path:${TMP_DIR}/spire-and-openziti-server
 
 $SPIRE_CMD entry create \
-  -spiffeID spiffe://openziti/jwtClient \
+  -spiffeID ${SPIFFE_CLIENT_ID} \
   -parentID spiffe://openziti/ids \
   -selector unix:path:${TMP_DIR}/spire-client
 
 $SPIRE_CMD entry create \
-  -spiffeID spiffe://openziti/jwtClient \
+  -spiffeID ${SPIFFE_CLIENT_ID} \
   -parentID spiffe://openziti/ids \
   -selector unix:path:${TMP_DIR}/openziti-client
 
 $SPIRE_CMD entry create \
-  -spiffeID spiffe://openziti/jwtClient \
+  -spiffeID ${SPIFFE_CLIENT_ID} \
   -parentID spiffe://openziti/ids \
   -selector unix:path:${TMP_DIR}/spire-and-openziti-client
 
@@ -195,17 +198,17 @@ ${TMP_DIR}/ziti/ziti edge delete auth-policy zpire-auth-policy
 ${TMP_DIR}/ziti/ziti edge delete ext-jwt-signer zpire-ext-jwt
 
 
-signer=$(${TMP_DIR}/ziti/ziti edge create ext-jwt-signer zpire-ext-jwt zpire -u http://172.20.166.120:8601/keys -a "spiffe://openziti/jwtServer")
+signer=$(${TMP_DIR}/ziti/ziti edge create ext-jwt-signer zpire-ext-jwt zpire -u http://${ETH0_IP}:8601/keys -a "${SPIFFE_SERVER_ID}")
 authPolicy=$(${TMP_DIR}/ziti/ziti edge create auth-policy zpire-auth-policy --primary-ext-jwt-allowed --primary-ext-jwt-allowed-signers ${signer})
 
 # create two identities for 'server' and 'clients'
 ${TMP_DIR}/ziti/ziti edge create identity service zpire-jwtClient \
   --auth-policy $authPolicy \
-  --external-id "spiffe://openziti/jwtClient" \
+  --external-id "${SPIFFE_CLIENT_ID}" \
   -a demo-services-client
 ${TMP_DIR}/ziti/ziti edge create identity service zpire-jwtServer \
   --auth-policy $authPolicy \
-  --external-id "spiffe://openziti/jwtServer" \
+  --external-id "${SPIFFE_SERVER_ID}" \
   -a demo-services-server
 
 # create two demo services
@@ -230,15 +233,15 @@ ${TMP_DIR}/ziti/ziti edge create identity user local.docker.user -a demo-service
 echo "ziti configuration applied. test identity for tunneler at: ${TMP_DIR}/local.docker.user.jwt"
 echo " "
 echo "At this point you should be able to run any of the servers and clients:"
-echo " - ${TMP_DIR}/nosecurity-server"
-echo " - ${TMP_DIR}/nosecurity-client 10 \"*\" 2"
+echo "   ${TMP_DIR}/nosecurity-server"
+echo "   ${TMP_DIR}/nosecurity-client 10 \"*\" 2"
 echo " "
-echo " - ${TMP_DIR}/spire-server"
-echo " - ${TMP_DIR}/spire-client 10 \"*\" 2"
+echo "   ${TMP_DIR}/spire-server"
+echo "   ${TMP_DIR}/spire-client 10 \"*\" 2"
 echo " "
-echo " - ${TMP_DIR}/openziti-server"
-echo " - ${TMP_DIR}/openziti-client 10 \"*\" 2"
+echo "   ${TMP_DIR}/openziti-server"
+echo "   ${TMP_DIR}/openziti-client 10 \"*\" 2"
 echo " "
-echo " - ${TMP_DIR}/spire-and-openziti-server"
-echo " - ${TMP_DIR}/spire-and-openziti-client 10 \"*\" 2"
+echo "   ${TMP_DIR}/spire-and-openziti-server"
+echo "   ${TMP_DIR}/spire-and-openziti-client 10 \"*\" 2"
 echo " "

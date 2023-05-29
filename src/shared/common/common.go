@@ -13,8 +13,9 @@ const (
 	InsecurePort     = 18080
 	SpireSecuredPort = 18081
 	OpenZitiRootUrl  = "https://localhost:1280"
-	serverURL        = "https://localhost:18443"
 	SocketPath       = "unix:///tmp/spire-agent/public/api.sock"
+	SpiffeClientId   = "spiffe://openziti/jwtClient"
+	SpiffeServerId   = "spiffe://openziti/jwtServer"
 )
 
 func CreateUnderlayListener(port int) net.Listener {
