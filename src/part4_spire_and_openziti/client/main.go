@@ -17,7 +17,7 @@ import (
 func main() {
 	portToUse := 443
 	httpScheme := "https"
-	baseURL := fmt.Sprintf("%s://domath.ziti:%d/domath", httpScheme, portToUse)
+	baseURL := fmt.Sprintf("%s://openziti.spire.ziti:%d/domath", httpScheme, portToUse)
 	params := url.Values{}
 	params.Set("input1", os.Args[1])
 	params.Set("operator", os.Args[2])

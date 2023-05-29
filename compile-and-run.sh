@@ -127,21 +127,24 @@ echo "SPIRE setup complete. Registering expected workloads"
 $SPIRE_CMD entry create \
   -spiffeID spiffe://openziti/jwtServer \
   -parentID spiffe://openziti/ids \
-  -dns domath.ziti \
+  -dns openziti.ziti \
+  -dns openziti.spire.ziti \
   -dns localhost \
   -selector unix:path:${TMP_DIR}/spire-server
 
 $SPIRE_CMD entry create \
   -spiffeID spiffe://openziti/jwtServer \
   -parentID spiffe://openziti/ids \
-  -dns domath.ziti \
+  -dns openziti.ziti \
+  -dns openziti.spire.ziti \
   -dns localhost \
   -selector unix:path:${TMP_DIR}/openziti-server
 
 $SPIRE_CMD entry create \
   -spiffeID spiffe://openziti/jwtServer \
   -parentID spiffe://openziti/ids \
-  -dns domath.ziti \
+  -dns openziti.ziti \
+  -dns openziti.spire.ziti \
   -dns localhost \
   -selector unix:path:${TMP_DIR}/spire-and-openziti-server
 
@@ -180,10 +183,12 @@ curl -s -N -L https://github.com/openziti/ziti/releases/download/v${OPENZITI_VER
 ${TMP_DIR}/ziti/ziti edge login $ziti_ctrl -u admin -p $ZITI_PWD -y
 echo "logged into ziti..."
 
-${TMP_DIR}/ziti/ziti edge delete service-policy secure-service-binder
-${TMP_DIR}/ziti/ziti edge delete service-policy secure-service-dialer
-${TMP_DIR}/ziti/ziti edge delete service secure-service
-${TMP_DIR}/ziti/ziti edge delete config secure-service-intercept.v1
+${TMP_DIR}/ziti/ziti edge delete service-policy demo-services-bind-policy
+${TMP_DIR}/ziti/ziti edge delete service-policy demo-services-dial-policy
+${TMP_DIR}/ziti/ziti edge delete config openziti-and-spire-intercept.v1
+${TMP_DIR}/ziti/ziti edge delete service openziti-and-spire-service
+${TMP_DIR}/ziti/ziti edge delete config openziti-only-intercept.v1
+${TMP_DIR}/ziti/ziti edge delete service openziti-only-service
 ${TMP_DIR}/ziti/ziti edge delete identity zpire-jwtClient
 ${TMP_DIR}/ziti/ziti edge delete identity zpire-jwtServer
 ${TMP_DIR}/ziti/ziti edge delete auth-policy zpire-auth-policy
@@ -192,27 +197,48 @@ ${TMP_DIR}/ziti/ziti edge delete ext-jwt-signer zpire-ext-jwt
 
 signer=$(${TMP_DIR}/ziti/ziti edge create ext-jwt-signer zpire-ext-jwt zpire -u http://172.20.166.120:8601/keys -a "spiffe://openziti/jwtServer")
 authPolicy=$(${TMP_DIR}/ziti/ziti edge create auth-policy zpire-auth-policy --primary-ext-jwt-allowed --primary-ext-jwt-allowed-signers ${signer})
-${TMP_DIR}/ziti/ziti edge create identity service zpire-jwtClient --auth-policy $authPolicy --external-id "spiffe://openziti/jwtClient" -a secure-service-dialers
-${TMP_DIR}/ziti/ziti edge create identity service zpire-jwtServer --auth-policy $authPolicy --external-id "spiffe://openziti/jwtServer" -a secure-service-binders
-${TMP_DIR}/ziti/ziti edge create config secure-service-intercept.v1 intercept.v1 '{"protocols":["tcp"],"addresses":["domath.ziti"], "portRanges":[{"low":443, "high":443}]}'
-${TMP_DIR}/ziti/ziti edge create service secure-service --configs secure-service-intercept.v1 -a secure-service-binders
-${TMP_DIR}/ziti/ziti edge create service-policy secure-service-binder Bind --service-roles '@secure-service' --identity-roles '#secure-service-binders'
-${TMP_DIR}/ziti/ziti edge create service-policy secure-service-dialer Dial --service-roles '@secure-service' --identity-roles '#secure-service-dialers'
 
-${TMP_DIR}/ziti/ziti edge create identity user local.docker.user -a secure-service-dialers -o ${TMP_DIR}/local.docker.user.jwt
+# create two identities for 'server' and 'clients'
+${TMP_DIR}/ziti/ziti edge create identity service zpire-jwtClient \
+  --auth-policy $authPolicy \
+  --external-id "spiffe://openziti/jwtClient" \
+  -a demo-services-client
+${TMP_DIR}/ziti/ziti edge create identity service zpire-jwtServer \
+  --auth-policy $authPolicy \
+  --external-id "spiffe://openziti/jwtServer" \
+  -a demo-services-server
+
+# create two demo services
+${TMP_DIR}/ziti/ziti edge create config openziti-only-intercept.v1 intercept.v1 \
+  '{"protocols":["tcp"],"addresses":["openziti.ziti"], "portRanges":[{"low":443, "high":443}]}'
+${TMP_DIR}/ziti/ziti edge create service openziti-only-service --configs openziti-only-intercept.v1 -a demo-services
+
+${TMP_DIR}/ziti/ziti edge create config openziti-and-spire-intercept.v1 intercept.v1 \
+  '{"protocols":["tcp"],"addresses":["openziti.spire.ziti"], "portRanges":[{"low":443, "high":443}]}'
+${TMP_DIR}/ziti/ziti edge create service openziti-and-spire-service --configs openziti-and-spire-intercept.v1 -a demo-services
+
+# authorize identities to dial/bind
+${TMP_DIR}/ziti/ziti edge create service-policy demo-services-bind-policy Bind \
+  --service-roles '#demo-services' \
+  --identity-roles '#demo-services-server'
+${TMP_DIR}/ziti/ziti edge create service-policy demo-services-dial-policy Dial \
+  --service-roles '#demo-services' \
+  --identity-roles '#demo-services-client'
+
+${TMP_DIR}/ziti/ziti edge create identity user local.docker.user -a demo-services-client -o ${TMP_DIR}/local.docker.user.jwt
 
 echo "ziti configuration applied. test identity for tunneler at: ${TMP_DIR}/local.docker.user.jwt"
 echo " "
 echo "At this point you should be able to run any of the servers and clients:"
 echo " - ${TMP_DIR}/nosecurity-server"
-echo " - ${TMP_DIR}/nosecurity-client"
+echo " - ${TMP_DIR}/nosecurity-client 10 \"*\" 2"
 echo " "
 echo " - ${TMP_DIR}/spire-server"
-echo " - ${TMP_DIR}/spire-client"
+echo " - ${TMP_DIR}/spire-client 10 \"*\" 2"
 echo " "
 echo " - ${TMP_DIR}/openziti-server"
-echo " - ${TMP_DIR}/openziti-client"
+echo " - ${TMP_DIR}/openziti-client 10 \"*\" 2"
 echo " "
 echo " - ${TMP_DIR}/spire-and-openziti-server"
-echo " - ${TMP_DIR}/spire-and-openziti-client"
+echo " - ${TMP_DIR}/spire-and-openziti-client 10 \"*\" 2"
 echo " "
