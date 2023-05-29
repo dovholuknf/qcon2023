@@ -54,11 +54,37 @@ mv spire-extras-${SPIRE_VERSION}/conf/oidc-discovery-provider spire-${SPIRE_VERS
 
 cd ${TMP_DIR}/spire-${SPIRE_VERSION}/
 echo "emitting configuration file for SPIRE server"
-sed -i -e 's/bind_address = .*/bind_address = "0.0.0.0"/g' conf/server/server.conf
-sed -i -e 's/bind_port = .*/bind_port = "8600"/g' conf/server/server.conf
-sed -i -e 's/trust_domain = .*/trust_domain = "openziti"/g' conf/server/server.conf
-sed -i -e 's/"48h"/"48h"\n    "jwt_issuer" = "zpire"/g' conf/server/server.conf
+cat > conf/server/server.conf << HERE
+server {
+    bind_address = "0.0.0.0"
+    bind_port = "8600"
+    trust_domain = "openziti"
+    data_dir = "./data/server"
+    log_level = "DEBUG"
+    ca_ttl = "168h"
+    default_x509_svid_ttl = "48h"
+    "jwt_issuer" = "zpire"
+}
 
+plugins {
+    DataStore "sql" {
+        plugin_data {
+            database_type = "sqlite3"
+            connection_string = "./data/server/datastore.sqlite3"
+        }
+    }
+
+    KeyManager "disk" {
+        plugin_data {
+            keys_path = "./data/server/keys.json"
+        }
+    }
+
+    NodeAttestor "join_token" {
+        plugin_data {}
+    }
+}
+HERE
 
 #start spire...
 $SPIRE_CMD run -config conf/server/server.conf > $TMP_DIR/spire.server.log &
