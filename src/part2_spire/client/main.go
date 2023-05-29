@@ -22,7 +22,7 @@ func main() {
 	params.Set("operator", os.Args[2])
 	params.Set("input2", os.Args[3])
 	opts := workloadapi.WithClientOptions(workloadapi.WithAddr(common.SocketPath))
-	jwt, _ := common.FetchJwt("spiffe://openziti/jwtServer", opts)
+	jwt, _ := spire.FetchJwt("spiffe://openziti/jwtServer", opts)
 	if len(os.Args) > 4 && os.Args[4] == "showcurl" {
 		fmt.Printf("This is the equivalent curl echo'ed from bash:\n  echo Response: $(curl -sk -H \"Authorization: Bearer %s\" '%s?input1=%v&operator=%v&input2=%v')\n",
 			jwt,

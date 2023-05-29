@@ -3,13 +3,10 @@ package common
 import (
 	"context"
 	"fmt"
-	"github.com/spiffe/go-spiffe/v2/svid/jwtsvid"
-	"github.com/spiffe/go-spiffe/v2/workloadapi"
 	"io"
 	"net"
 	"net/http"
 	"strconv"
-	"time"
 )
 
 const (
@@ -26,21 +23,6 @@ func CreateUnderlayListener(port int) net.Listener {
 		panic(err)
 	}
 	return ln
-}
-
-func FetchJwt(audience string, opts workloadapi.SourceOption) (string, error) {
-	ctx, _ := context.WithTimeout(context.Background(), 30*time.Second)
-	jwtSource, err := workloadapi.NewJWTSource(ctx, opts)
-	if err != nil {
-		return "", fmt.Errorf("unable to create JWTSource: %w", err)
-	}
-	svid, err := jwtSource.FetchJWTSVID(ctx, jwtsvid.Params{
-		Audience: audience,
-	})
-	if err != nil {
-		return "", err
-	}
-	return svid.Marshal(), nil
 }
 
 type HandlerSecurityFunc func(ctx context.Context, handlerFunc http.HandlerFunc) http.Handler

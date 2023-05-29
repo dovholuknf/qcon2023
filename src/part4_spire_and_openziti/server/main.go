@@ -17,7 +17,7 @@ func main() {
 	httpServer := common.CreateServer(ctx, spire.SecureWithSpireJwt)
 	spire.SecureWithSpire(ctx, httpServer)
 
-	jwt, _ := common.FetchJwt("spiffe://openziti/jwtServer", opts)
+	jwt, _ := spire.FetchJwt("spiffe://openziti/jwtServer", opts)
 	ln := openziti.CreateOpenZitiListener(jwt, "secure-service" /*common.SpireSecuredPort*/)
 	log.Printf("Starting server secured by SPIRE and OpenZiti on the OpenZiti overlay, no open port\n")
 	if err := httpServer.ServeTLS(ln, "", ""); err != nil {

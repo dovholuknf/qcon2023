@@ -37,7 +37,7 @@ func CreateOpenZitiListener(jwt, serviceName string) net.Listener {
 	return ln
 }
 
-func SecureDefaultHttpClientWithOpenZiti(jwt string) {
+func CreateZitifiedTransport(jwt string) *http.Transport {
 	caPool, caErr := ziti.GetControllerWellKnownCaPool(common.OpenZitiRootUrl)
 	if caErr != nil {
 		panic(caErr)
@@ -62,6 +62,9 @@ func SecureDefaultHttpClientWithOpenZiti(jwt string) {
 		dialer := ziti.NewDialerWithFallback(ctx, nil)
 		return dialer.Dial(network, addr)
 	}
+	return zitiTransport
+}
 
-	http.DefaultClient.Transport = zitiTransport
+func SecureDefaultHttpClientWithOpenZiti(jwt string) {
+	http.DefaultClient.Transport = CreateZitifiedTransport(jwt)
 }

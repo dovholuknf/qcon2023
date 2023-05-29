@@ -5,38 +5,69 @@
 SOURCE_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 TMP_DIR=/tmp/dovholuknf/qcon2023
 SPIRE_VERSION=1.6.4
+SPIRE_CMD=${TMP_DIR}/spire-${SPIRE_VERSION}/bin/spire-server
+OPENZITI_VER=0.28.0
 #
 ###################################################
+echo "------------------------------------------"
+echo SOURCE_DIR=${SOURCE_DIR}
+echo TMP_DIR=${TMP_DIR}
+echo SPIRE_VERSION=${SPIRE_VERSION}
+echo SPIRE_CMD=${SPIRE_CMD}
+echo "------------------------------------------"
 
-SPIRE=${TMP_DIR}/spire-${SPIRE_VERSION}/bin/spire-server
+echo "recreating TMP_DIR: $TMP_DIR"
 sudo rm -rf ${TMP_DIR}
 mkdir -p ${TMP_DIR}
+
+cd ${SOURCE_DIR}/src
+echo "compiling all the samples with go build..."
+echo "nosecurity-*"
+go build -o ${TMP_DIR}/nosecurity-server part1_nosecurity/server/main.go
+go build -o ${TMP_DIR}/nosecurity-client part1_nosecurity/client/main.go
+
+echo "spire-*"
+go build -o ${TMP_DIR}/spire-server part2_spire/server/main.go
+go build -o ${TMP_DIR}/spire-client part2_spire/client/main.go
+
+echo "openziti-*"
+go build -o ${TMP_DIR}/openziti-server part3_openziti/server/main.go
+go build -o ${TMP_DIR}/openziti-client part3_openziti/client/main.go
+
+echo "spire-and-openziti-*"
+go build -o ${TMP_DIR}/spire-and-openziti-server part4_spire_and_openziti/server/main.go
+go build -o ${TMP_DIR}/spire-and-openziti-client part4_spire_and_openziti/client/main.go
 
 sudo killall spire-server
 sudo killall spire-agent
 sudo killall oidc-discovery-provider
 
 cd ${TMP_DIR}
+echo "downloading and untarring SPIRE from https://github.com/spiffe/spire/releases/download/v${SPIRE_VERSION}/spire-${SPIRE_VERSION}-linux-amd64-glibc.tar.gz"
 curl -s -N -L https://github.com/spiffe/spire/releases/download/v${SPIRE_VERSION}/spire-${SPIRE_VERSION}-linux-amd64-glibc.tar.gz | tar xz
 curl -s -N -L https://github.com/spiffe/spire/releases/download/v${SPIRE_VERSION}/spire-extras-${SPIRE_VERSION}-linux-amd64-glibc.tar.gz | tar xz
 mv spire-extras-${SPIRE_VERSION}/bin/oidc-discovery-provider spire-${SPIRE_VERSION}/bin/
 mv spire-extras-${SPIRE_VERSION}/conf/oidc-discovery-provider spire-${SPIRE_VERSION}/conf
 
 cd ${TMP_DIR}/spire-${SPIRE_VERSION}/
+echo "emitting configuration file for SPIRE server"
 sed -i -e 's/bind_address = .*/bind_address = "0.0.0.0"/g' conf/server/server.conf
 sed -i -e 's/bind_port = .*/bind_port = "8600"/g' conf/server/server.conf
 sed -i -e 's/trust_domain = .*/trust_domain = "openziti"/g' conf/server/server.conf
 sed -i -e 's/"48h"/"48h"\n    "jwt_issuer" = "zpire"/g' conf/server/server.conf
 
+
 #start spire...
-$SPIRE run -config conf/server/server.conf > spire.server.log &
+$SPIRE_CMD run -config conf/server/server.conf > $TMP_DIR/spire.server.log &
 echo "spire-server started. waiting two seconds for it to start up and initialize..."
 sleep 2
 
 #setup spire agent
-agent_token=$($SPIRE token generate -spiffeID  spiffe://openziti/ids | cut -d " " -f2)
-#client_agent_token=$($SPIRE token generate -spiffeID  spiffe://openziti/ids | cut -d " " -f2)
+agent_token=$(${SPIRE_CMD} token generate -spiffeID  spiffe://openziti/ids | cut -d " " -f2)
+echo "SPIRE AGENT TOKEN: $agent_token"
 
+
+echo "emitting configuration file for SPIRE agent"
 cat > conf/agent/agent.conf << HERE
 agent {
     data_dir = "./data/agent"
@@ -69,13 +100,13 @@ plugins {
 }
 HERE
 
-#start the spire agent
-sudo bin/spire-agent run -config conf/agent/agent.conf -joinToken $agent_token > spire.agent.log &
+sudo -b bin/spire-agent run -config conf/agent/agent.conf -joinToken $agent_token > $TMP_DIR/spire.agent.log
 echo "spire-agent started. waiting two seconds for it to start up and initialize..."
 sleep 2
 
 mkdir -p conf/oidc-discovery-provider/
 
+echo "emitting configuration file for SPIRE oidc-discovery-provider extra"
 cat > conf/oidc-discovery-provider/oidc-discovery-provider.conf << HERE
 log_level = "debug"
 # allowed domain list, I keep mypublicdomain.test here just for displaying it is a list,
@@ -88,92 +119,100 @@ server_api {
     address = "unix:///tmp/spire-server/private/api.sock"
 }
 HERE
-
 #start oidc keys
-bin/oidc-discovery-provider -config conf/oidc-discovery-provider/oidc-discovery-provider.conf > spire.oidc.discover.provider.log &
+bin/oidc-discovery-provider -config conf/oidc-discovery-provider/oidc-discovery-provider.conf > $TMP_DIR/spire.oidc.discover.provider.log &
 
-# all the samples...
+echo "SPIRE setup complete. Registering expected workloads"
 
-
-#$SPIRE entry create \
-#  -spiffeID spiffe://openziti/jwtServer \
-#  -parentID spiffe://openziti/ids \
-#  -selector unix:user:cd
-
-$SPIRE entry create \
+$SPIRE_CMD entry create \
   -spiffeID spiffe://openziti/jwtServer \
   -parentID spiffe://openziti/ids \
-  -selector unix:path:/mnt/v/work/git/github/dovholuknf/qcon2023/src/linux-build/server
+  -dns jwt.local.server \
+  -dns localhost \
+  -selector unix:path:${TMP_DIR}/spire-server
 
-$SPIRE entry create \
+$SPIRE_CMD entry create \
   -spiffeID spiffe://openziti/jwtServer \
   -parentID spiffe://openziti/ids \
-  -selector unix:path:/home/cd/golang-demo/server
+  -dns jwt.local.server \
+  -dns localhost \
+  -selector unix:path:${TMP_DIR}/openziti-server
 
-$SPIRE entry create \
+$SPIRE_CMD entry create \
   -spiffeID spiffe://openziti/jwtServer \
   -parentID spiffe://openziti/ids \
-  -selector unix:user:spire-server-workload
+  -dns jwt.local.server \
+  -dns localhost \
+  -selector unix:path:${TMP_DIR}/spire-and-openziti-server
 
-
-#$SPIRE entry create \
-#  -spiffeID spiffe://openziti/jwtClient \
-#  -parentID spiffe://openziti/ids \
-#  -selector unix:user:spire-client-workload
-$SPIRE entry create \
+$SPIRE_CMD entry create \
   -spiffeID spiffe://openziti/jwtClient \
   -parentID spiffe://openziti/ids \
-  -selector unix:path:/mnt/v/work/git/github/dovholuknf/qcon/go-spiffe/v2/examples/spiffe-jwt/linux-build/client
-$SPIRE entry create \
+  -selector unix:path:${TMP_DIR}/spire-client
+
+$SPIRE_CMD entry create \
   -spiffeID spiffe://openziti/jwtClient \
   -parentID spiffe://openziti/ids \
-  -selector unix:path:/home/cd/golang-demo/client
-$SPIRE entry create \
+  -selector unix:path:${TMP_DIR}/openziti-client
+
+$SPIRE_CMD entry create \
   -spiffeID spiffe://openziti/jwtClient \
   -parentID spiffe://openziti/ids \
-  -selector unix:user:cd
+  -selector unix:path:${TMP_DIR}/spire-and-openziti-client
 
-$SPIRE entry create \
-  -spiffeID spiffe://openziti/jwtClient \
-  -parentID spiffe://openziti/ids \
-  -selector unix:path:/mnt/v/work/git/github/dovholuknf/qcon2023/src/linux-build/client
 
-function deleteSvidBySelector {
-$SPIRE entry show -selector $1 | grep Entry | cut -d ":" -f2 | xargs $SPIRE entry delete -entryID
-}
+echo "starting OpenZiti environment via docker compose -d"
+curl -s https://get.openziti.io/dock/docker-compose.yml > $TMP_DIR/docker-compose.yml
+curl -s https://get.openziti.io/dock/.env > $TMP_DIR/.env
 
+docker compose -f $TMP_DIR/docker-compose.yml --env-file=$TMP_DIR/.env -p qcon2023 down -v
+docker compose -f $TMP_DIR/docker-compose.yml --env-file=$TMP_DIR/.env -p qcon2023 up -d
 
 ziti_ctrl="https://localhost:1280"
 while [[ "$(curl -w "%{http_code}" -m 1 -s -k -o /dev/null ${ziti_ctrl}/version)" != "200" ]]; do echo "waiting for ${ziti_ctrl}"; sleep 3; done; echo "controller online"
 
-eval $(docker exec compose-ziti-controller-1 cat ziti.env | grep ZITI_PWD=)
 
-ziti edge login $ziti_ctrl -u admin -p $ZITI_PWD -y
+eval $(docker exec qcon2023-ziti-controller-1 cat ziti.env | grep ZITI_PWD=)
+
+echo "getting openziti"
+curl -s -N -L https://github.com/openziti/ziti/releases/download/v${OPENZITI_VER}/ziti-linux-amd64-${OPENZITI_VER}.tar.gz | tar xz -C ${TMP_DIR}
+
+${TMP_DIR}/ziti/ziti edge login $ziti_ctrl -u admin -p $ZITI_PWD -y
 echo "logged into ziti..."
 
-ziti edge delete service-policy secure-service-binder
-ziti edge delete service-policy secure-service-dialer
-ziti edge delete service secure-service
-ziti edge delete config secure-service-intercept.v1
-ziti edge delete identity zpire-jwtClient
-ziti edge delete identity zpire-jwtServer
-ziti edge delete auth-policy zpire-auth-policy
-ziti edge delete ext-jwt-signer zpire-ext-jwt
+${TMP_DIR}/ziti/ziti edge delete service-policy secure-service-binder
+${TMP_DIR}/ziti/ziti edge delete service-policy secure-service-dialer
+${TMP_DIR}/ziti/ziti edge delete service secure-service
+${TMP_DIR}/ziti/ziti edge delete config secure-service-intercept.v1
+${TMP_DIR}/ziti/ziti edge delete identity zpire-jwtClient
+${TMP_DIR}/ziti/ziti edge delete identity zpire-jwtServer
+${TMP_DIR}/ziti/ziti edge delete auth-policy zpire-auth-policy
+${TMP_DIR}/ziti/ziti edge delete ext-jwt-signer zpire-ext-jwt
 
 
-signer=$(ziti edge create ext-jwt-signer zpire-ext-jwt zpire -u http://172.20.166.120:8601/keys -a "spiffe://openziti/jwtServer")
-authPolicy=$(ziti edge create auth-policy zpire-auth-policy --primary-ext-jwt-allowed --primary-ext-jwt-allowed-signers ${signer})
-ziti edge create identity service zpire-jwtClient --auth-policy $authPolicy --external-id "spiffe://openziti/jwtClient" -a secure-service-dialers
-ziti edge create identity service zpire-jwtServer --auth-policy $authPolicy --external-id "spiffe://openziti/jwtServer" -a secure-service-binders
-ziti edge create config secure-service-intercept.v1 intercept.v1 '{"protocols":["tcp"],"addresses":["jwt.local.server"], "portRanges":[{"low":443, "high":443}]}'
-ziti edge create service secure-service --configs secure-service-intercept.v1 -a secure-service-binders
-ziti edge create service-policy secure-service-binder Bind --service-roles '@secure-service' --identity-roles '#secure-service-binders'
-ziti edge create service-policy secure-service-dialer Dial --service-roles '@secure-service' --identity-roles '#secure-service-dialers'
+signer=$(${TMP_DIR}/ziti/ziti edge create ext-jwt-signer zpire-ext-jwt zpire -u http://172.20.166.120:8601/keys -a "spiffe://openziti/jwtServer")
+authPolicy=$(${TMP_DIR}/ziti/ziti edge create auth-policy zpire-auth-policy --primary-ext-jwt-allowed --primary-ext-jwt-allowed-signers ${signer})
+${TMP_DIR}/ziti/ziti edge create identity service zpire-jwtClient --auth-policy $authPolicy --external-id "spiffe://openziti/jwtClient" -a secure-service-dialers
+${TMP_DIR}/ziti/ziti edge create identity service zpire-jwtServer --auth-policy $authPolicy --external-id "spiffe://openziti/jwtServer" -a secure-service-binders
+${TMP_DIR}/ziti/ziti edge create config secure-service-intercept.v1 intercept.v1 '{"protocols":["tcp"],"addresses":["jwt.local.server"], "portRanges":[{"low":443, "high":443}]}'
+${TMP_DIR}/ziti/ziti edge create service secure-service --configs secure-service-intercept.v1 -a secure-service-binders
+${TMP_DIR}/ziti/ziti edge create service-policy secure-service-binder Bind --service-roles '@secure-service' --identity-roles '#secure-service-binders'
+${TMP_DIR}/ziti/ziti edge create service-policy secure-service-dialer Dial --service-roles '@secure-service' --identity-roles '#secure-service-dialers'
 
-ziti edge create identity user local.docker.user -a secure-service-dialers -o /mnt/v/temp/local.docker.user.jwt
+${TMP_DIR}/ziti/ziti edge create identity user local.docker.user -a secure-service-dialers -o ${TMP_DIR}/local.docker.user.jwt
 
-echo "ziti configuration applied"
+echo "ziti configuration applied. test identity for tunneler at: ${TMP_DIR}/local.docker.user.jwt"
 echo " "
-
-
-
+echo "At this point you should be able to run any of the servers and clients:"
+echo " - ${TMP_DIR}/nosecurity-server"
+echo " - ${TMP_DIR}/nosecurity-client"
+echo " "
+echo " - ${TMP_DIR}/spire-server"
+echo " - ${TMP_DIR}/spire-client"
+echo " "
+echo " - ${TMP_DIR}/openziti-server"
+echo " - ${TMP_DIR}/openziti-client"
+echo " "
+echo " - ${TMP_DIR}/spire-and-openziti-server"
+echo " - ${TMP_DIR}/spire-and-openziti-client"
+echo " "

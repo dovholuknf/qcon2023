@@ -2,6 +2,8 @@ package spire
 
 import (
 	"context"
+	"crypto/tls"
+	"fmt"
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
 	"github.com/spiffe/go-spiffe/v2/spiffetls/tlsconfig"
 	"github.com/spiffe/go-spiffe/v2/svid/jwtsvid"
@@ -9,11 +11,27 @@ import (
 	"log"
 	"net/http"
 	"strings"
+	"time"
 )
 
 type authenticator struct {
 	jwtSource *workloadapi.JWTSource
 	audiences []string
+}
+
+func FetchJwt(audience string, opts workloadapi.SourceOption) (string, error) {
+	ctx, _ := context.WithTimeout(context.Background(), 30*time.Second)
+	jwtSource, err := workloadapi.NewJWTSource(ctx, opts)
+	if err != nil {
+		return "", fmt.Errorf("unable to create JWTSource: %w", err)
+	}
+	svid, err := jwtSource.FetchJWTSVID(ctx, jwtsvid.Params{
+		Audience: audience,
+	})
+	if err != nil {
+		return "", err
+	}
+	return svid.Marshal(), nil
 }
 
 func SecureWithSpireJwt(ctx context.Context, handlerFunc http.HandlerFunc) http.Handler {
@@ -78,7 +96,7 @@ func SecureWithSpire(ctx context.Context, server *http.Server) {
 	server.TLSConfig = tlsconfig.TLSServerConfig(x509Source)
 }
 
-func SecureDefaultHttpClientWithSpiffe(ctx context.Context, opts workloadapi.SourceOption) {
+func CreateSpiffeEnabledTlsConfig(ctx context.Context, opts workloadapi.SourceOption) *tls.Config {
 	// Create X509 source to fetch bundle certificate used to verify presented certificate from server
 	x509Source, err := workloadapi.NewX509Source(ctx, opts)
 	if err != nil {
@@ -88,10 +106,12 @@ func SecureDefaultHttpClientWithSpiffe(ctx context.Context, opts workloadapi.Sou
 	// Create a `tls.Config` with configuration to allow TLS communication, and verify that presented certificate
 	//from server has SPIFFE ID `spiffe://openziti/jwtServer`
 	serverID := spiffeid.RequireFromString("spiffe://openziti/jwtServer")
-	tlsConfig := tlsconfig.TLSClientConfig(x509Source, tlsconfig.AuthorizeID(serverID))
+	return tlsconfig.TLSClientConfig(x509Source, tlsconfig.AuthorizeID(serverID))
+}
 
+func SecureDefaultHttpClientWithSpiffe(ctx context.Context, opts workloadapi.SourceOption) {
 	t := &http.Transport{
-		TLSClientConfig: tlsConfig,
+		TLSClientConfig: CreateSpiffeEnabledTlsConfig(ctx, opts),
 	}
 	http.DefaultClient.Transport = t
 }

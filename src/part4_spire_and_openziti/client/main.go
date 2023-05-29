@@ -17,13 +17,13 @@ import (
 func main() {
 	portToUse := 443
 	httpScheme := "https"
-	baseURL := fmt.Sprintf("%s://jwt.local.server:%d/domath", httpScheme, portToUse)
+	baseURL := fmt.Sprintf("%s://domath.ziti:%d/domath", httpScheme, portToUse)
 	params := url.Values{}
 	params.Set("input1", os.Args[1])
 	params.Set("operator", os.Args[2])
 	params.Set("input2", os.Args[3])
 	opts := workloadapi.WithClientOptions(workloadapi.WithAddr(common.SocketPath))
-	jwt, _ := common.FetchJwt("spiffe://openziti/jwtServer", opts)
+	jwt, _ := spire.FetchJwt("spiffe://openziti/jwtServer", opts)
 	if len(os.Args) > 4 && os.Args[4] == "showcurl" {
 		fmt.Printf("This is the equivalent curl echo'ed from bash:\n  echo Response: $(curl -sk -H \"Authorization: Bearer %s\" '%s?input1=%v&operator=%v&input2=%v')\n",
 			jwt,
@@ -37,8 +37,10 @@ func main() {
 
 	mathUrl := fmt.Sprintf("%s?%s", baseURL, params.Encode())
 
-	openziti.SecureDefaultHttpClientWithOpenZiti(jwt)
-	spire.SecureDefaultHttpClientWithSpiffe(context.Background(), opts)
+	transport := openziti.CreateZitifiedTransport(jwt)
+	tlsConfig := spire.CreateSpiffeEnabledTlsConfig(context.Background(), opts)
+	transport.TLSClientConfig = tlsConfig
+	http.DefaultTransport = transport
 
 	req, err := http.NewRequest("GET", mathUrl, nil)
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", jwt))
