@@ -1,0 +1,100 @@
+package common
+
+import (
+	"context"
+	"fmt"
+	"github.com/spiffe/go-spiffe/v2/svid/jwtsvid"
+	"github.com/spiffe/go-spiffe/v2/workloadapi"
+	"io"
+	"net"
+	"net/http"
+	"strconv"
+	"time"
+)
+
+const (
+	InsecurePort     = 18080
+	SpireSecuredPort = 18081
+	OpenZitiRootUrl  = "https://localhost:1280"
+	serverURL        = "https://localhost:18443"
+	SocketPath       = "unix:///tmp/spire-agent/public/api.sock"
+)
+
+func CreateUnderlayListener(port int) net.Listener {
+	ln, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
+	if err != nil {
+		panic(err)
+	}
+	return ln
+}
+
+func FetchJwt(audience string, opts workloadapi.SourceOption) (string, error) {
+	ctx, _ := context.WithTimeout(context.Background(), 30*time.Second)
+	jwtSource, err := workloadapi.NewJWTSource(ctx, opts)
+	if err != nil {
+		return "", fmt.Errorf("unable to create JWTSource: %w", err)
+	}
+	svid, err := jwtSource.FetchJWTSVID(ctx, jwtsvid.Params{
+		Audience: audience,
+	})
+	if err != nil {
+		return "", err
+	}
+	return svid.Marshal(), nil
+}
+
+type HandlerSecurityFunc func(ctx context.Context, handlerFunc http.HandlerFunc) http.Handler
+
+func CreateServer(ctx context.Context, secFunc HandlerSecurityFunc) *http.Server {
+	svr := &http.Server{}
+	mux := http.NewServeMux()
+	if secFunc != nil {
+		mux.Handle("/", secFunc(ctx, index))
+		mux.Handle("/domath", secFunc(ctx, mathHandler))
+	} else {
+		mux.Handle("/", http.HandlerFunc(index))
+		mux.Handle("/domath", http.HandlerFunc(mathHandler))
+	}
+	svr.Handler = mux
+	return svr
+}
+
+func index(w http.ResponseWriter, r *http.Request) {
+	_, _ = io.WriteString(w, "Success!!!\n")
+}
+
+func mathHandler(w http.ResponseWriter, r *http.Request) {
+	input1, err := strconv.ParseFloat(r.URL.Query().Get("input1"), 64)
+	if err != nil {
+		http.Error(w, "Invalid input1", http.StatusBadRequest)
+		return
+	}
+
+	input2, err := strconv.ParseFloat(r.URL.Query().Get("input2"), 64)
+	if err != nil {
+		http.Error(w, "Invalid input2", http.StatusBadRequest)
+		return
+	}
+
+	var result float64
+
+	switch r.URL.Query().Get("operator") {
+	case "+":
+		result = input1 + input2
+	case "-":
+		result = input1 - input2
+	case "*":
+		result = input1 * input2
+	case "/":
+		if input2 == 0 {
+			http.Error(w, "Division by zero is not allowed", http.StatusBadRequest)
+			return
+		}
+		result = input1 / input2
+	default:
+		http.Error(w, "Invalid operator", http.StatusBadRequest)
+		return
+	}
+
+	_, _ = fmt.Fprintf(w, "Result: %.2f", result)
+}
