@@ -17,7 +17,8 @@ import (
 func main() {
 	portToUse := 443
 	httpScheme := "https"
-	baseURL := fmt.Sprintf("%s://openziti.spire.ziti:%d/domath", httpScheme, portToUse)
+	server := "openziti.spire.ziti"
+	baseURL := fmt.Sprintf("%s://%s:%d/domath", server, httpScheme, portToUse)
 	params := url.Values{}
 	params.Set("input1", os.Args[1])
 	params.Set("operator", os.Args[2])
@@ -43,11 +44,11 @@ func main() {
 	http.DefaultTransport = transport
 
 	req, err := http.NewRequest("GET", mathUrl, nil)
-	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", jwt))
 	if err != nil {
 		log.Fatalf("unable to create request: %v", err)
 	}
 
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", jwt))
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		log.Fatalf("Error making the request: %v", err)

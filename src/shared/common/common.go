@@ -18,15 +18,7 @@ const (
 	SpiffeServerId   = "spiffe://openziti/jwtServer"
 )
 
-func CreateUnderlayListener(port int) net.Listener {
-	ln, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
-	if err != nil {
-		panic(err)
-	}
-	return ln
-}
-
-type HandlerSecurityFunc func(ctx context.Context, handlerFunc http.HandlerFunc) http.Handler
+type HandlerSecurityFunc func(ctx context.Context, f http.HandlerFunc) http.Handler
 
 func CreateServer(ctx context.Context, secFunc HandlerSecurityFunc) *http.Server {
 	svr := &http.Server{}
@@ -40,6 +32,14 @@ func CreateServer(ctx context.Context, secFunc HandlerSecurityFunc) *http.Server
 	}
 	svr.Handler = mux
 	return svr
+}
+
+func CreateUnderlayListener(port int) net.Listener {
+	ln, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
+	if err != nil {
+		panic(err)
+	}
+	return ln
 }
 
 func index(w http.ResponseWriter, r *http.Request) {
@@ -70,7 +70,7 @@ func mathHandler(w http.ResponseWriter, r *http.Request) {
 		result = input1 * input2
 	case "/":
 		if input2 == 0 {
-			http.Error(w, "Division by zero is not allowed", http.StatusBadRequest)
+			http.Error(w, "Division by zero not allowed", http.StatusBadRequest)
 			return
 		}
 		result = input1 / input2
