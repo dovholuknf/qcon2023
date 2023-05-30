@@ -194,7 +194,7 @@ $SPIRE_CMD entry create \
 
 
 echo "starting OpenZiti environment via docker compose -d"
-curl -s https://get.openziti.io/dock/docker-compose.yml > $TMP_DIR/docker-compose.yml
+curl -s https://get.openziti.io/dock/simplified-docker-compose.yml > $TMP_DIR/docker-compose.yml
 curl -s https://get.openziti.io/dock/.env > $TMP_DIR/.env
 
 docker compose -f $TMP_DIR/docker-compose.yml --env-file=$TMP_DIR/.env -p qcon2023 down -v
