@@ -34,7 +34,7 @@ understand what it does what it does, and why.
 
 The script has the following dependencies:
 
-* The files downloaded are all linux-based. If you use MacOS, update [compile-and-run.sh](./compile-and-run.sh) before trying it out
+* The files downloaded are all linux-based. If you use MacOS, update the `DL_ARCH` variable in the script
 * The files will all be saved to `TMP_DIR` which by default is set to `/tmp/dovholuknf/qcon2023`.
 * `go` will be needed to build the samples
 * `docker` (and the newer `docker compose`)
@@ -54,8 +54,9 @@ The script has the following dependencies:
 
 The script has within it all the cleanup steps you need. This will come down to:
 * stopping `docker compose`:
-
-      `docker compose -f $TMP_DIR/docker-compose.yml --env-file=$TMP_DIR/.env -p qcon2023 down -v`
+      
+      TMP_DIR=/tmp/dovholuknf/qcon2023
+      docker compose -f $TMP_DIR/docker-compose.yml --env-file=$TMP_DIR/.env -p qcon2023 down -v
 
 * stopping the SPIRE server, agent and oidc-discovery-provider:
 

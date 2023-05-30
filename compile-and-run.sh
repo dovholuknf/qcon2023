@@ -7,6 +7,7 @@ TMP_DIR=/tmp/dovholuknf/qcon2023
 SPIRE_VERSION=1.6.4
 SPIRE_CMD=${TMP_DIR}/spire-${SPIRE_VERSION}/bin/spire-server
 OPENZITI_VER=0.28.0
+DL_ARCH=linux-amd64
 SPIFFE_CLIENT_ID=spiffe://openziti/jwtClient
 SPIFFE_SERVER_ID=spiffe://openziti/jwtServer
 ETH0_IP=$(ip addr show eth0 | grep "inet\b" | awk '{print $2}' | cut -d/ -f1)
@@ -46,9 +47,9 @@ sudo killall spire-agent
 sudo killall oidc-discovery-provider
 
 cd ${TMP_DIR}
-echo "downloading and untarring SPIRE from https://github.com/spiffe/spire/releases/download/v${SPIRE_VERSION}/spire-${SPIRE_VERSION}-linux-amd64-glibc.tar.gz"
-curl -s -N -L https://github.com/spiffe/spire/releases/download/v${SPIRE_VERSION}/spire-${SPIRE_VERSION}-linux-amd64-glibc.tar.gz | tar xz
-curl -s -N -L https://github.com/spiffe/spire/releases/download/v${SPIRE_VERSION}/spire-extras-${SPIRE_VERSION}-linux-amd64-glibc.tar.gz | tar xz
+echo "downloading and untarring SPIRE from https://github.com/spiffe/spire/releases/download/v${SPIRE_VERSION}/spire-${SPIRE_VERSION}-${DL_ARCH}-glibc.tar.gz"
+curl -s -N -L https://github.com/spiffe/spire/releases/download/v${SPIRE_VERSION}/spire-${SPIRE_VERSION}-${DL_ARCH}-glibc.tar.gz | tar xz
+curl -s -N -L https://github.com/spiffe/spire/releases/download/v${SPIRE_VERSION}/spire-extras-${SPIRE_VERSION}-${DL_ARCH}-glibc.tar.gz | tar xz
 mv spire-extras-${SPIRE_VERSION}/bin/oidc-discovery-provider spire-${SPIRE_VERSION}/bin/
 mv spire-extras-${SPIRE_VERSION}/conf/oidc-discovery-provider spire-${SPIRE_VERSION}/conf
 
@@ -207,7 +208,7 @@ while [[ "$(curl -w "%{http_code}" -m 1 -s -k -o /dev/null ${ziti_ctrl}/version)
 eval $(docker exec qcon2023-ziti-controller-1 cat ziti.env | grep ZITI_PWD=)
 
 echo "getting openziti"
-curl -s -N -L https://github.com/openziti/ziti/releases/download/v${OPENZITI_VER}/ziti-linux-amd64-${OPENZITI_VER}.tar.gz | tar xz -C ${TMP_DIR}
+curl -s -N -L https://github.com/openziti/ziti/releases/download/v${OPENZITI_VER}/ziti-${DL_ARCH}-${OPENZITI_VER}.tar.gz | tar xz -C ${TMP_DIR}
 
 ${TMP_DIR}/ziti/ziti edge login $ziti_ctrl -u admin -p $ZITI_PWD -y
 echo "logged into ziti..."
