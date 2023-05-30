@@ -34,6 +34,7 @@ understand what it does what it does, and why.
 
 The script has the following dependencies:
 
+* The files downloaded are all linux-based. If you use MacOS, update [compile-and-run.sh](./compile-and-run.sh) before trying it out
 * The files will all be saved to `TMP_DIR` which by default is set to `/tmp/dovholuknf/qcon2023`.
 * `go` will be needed to build the samples
 * `docker` (and the newer `docker compose`)
