@@ -10,7 +10,25 @@ OPENZITI_VER=0.28.0
 DL_ARCH=linux-amd64
 SPIFFE_CLIENT_ID=spiffe://openziti/jwtClient
 SPIFFE_SERVER_ID=spiffe://openziti/jwtServer
-ETH0_IP=$(ip addr show eth0 | grep "inet\b" | awk '{print $2}' | cut -d/ -f1)
+if [[ $ETH0_IP == "" ]]; then
+  echo -n "ETH0_IP not set. Trying to determine the IP to use from: wlan0... "
+  ETH0_IP=$(ip addr show wlan0 | grep "inet\b" | awk '{print $2}' | cut -d/ -f1)
+  if [[ $ETH0_IP == "" ]]; then
+    echo -n "ETH0_IP not set. Trying to determine the IP to use from: eth0... "
+    ETH0_IP=$(ip addr show eth0 | grep "inet\b" | awk '{print $2}' | cut -d/ -f1)
+    if [[ $ETH0_IP == "" ]]; then
+      echo "ERROR  : ETH0_IP not determined! The script cannot complete."
+      echo "         Please set an environment variable named: ETH0_IP before before continuing"
+      return
+    else
+      echo "ETH0_IP found using eth0: ${ETH0_IP}"
+    fi
+  else
+    echo "ETH0_IP found using wlan0: ${ETH0_IP}"
+  fi
+else
+  echo "ETH0_IP specified already: ${ETH0_IP}"
+fi
 #
 ###################################################
 echo "------------------------------------------"
@@ -18,10 +36,11 @@ echo SOURCE_DIR=${SOURCE_DIR}
 echo TMP_DIR=${TMP_DIR}
 echo SPIRE_VERSION=${SPIRE_VERSION}
 echo SPIRE_CMD=${SPIRE_CMD}
+echo "ETH0_IP: ${ETH0_IP}"
 echo "------------------------------------------"
 
 echo "recreating TMP_DIR: $TMP_DIR"
-sudo rm -rf ${TMP_DIR}
+rm -rf ${TMP_DIR}
 mkdir -p ${TMP_DIR}
 
 cd ${SOURCE_DIR}/src
@@ -42,9 +61,9 @@ echo "spire-and-openziti-*"
 go build -o ${TMP_DIR}/spire-and-openziti-server part4_spire_and_openziti/server/main.go
 go build -o ${TMP_DIR}/spire-and-openziti-client part4_spire_and_openziti/client/main.go
 
-sudo killall spire-server
-sudo killall spire-agent
-sudo killall oidc-discovery-provider
+killall spire-server
+killall spire-agent
+killall oidc-discovery-provider
 
 cd ${TMP_DIR}
 echo "downloading and untarring SPIRE from https://github.com/spiffe/spire/releases/download/v${SPIRE_VERSION}/spire-${SPIRE_VERSION}-${DL_ARCH}-glibc.tar.gz"
@@ -130,7 +149,7 @@ plugins {
 }
 HERE
 
-sudo -b bin/spire-agent run -config conf/agent/agent.conf -joinToken $agent_token > $TMP_DIR/spire.agent.log
+bin/spire-agent run -config conf/agent/agent.conf -joinToken $agent_token > $TMP_DIR/spire.agent.log &
 echo "spire-agent started. waiting two seconds for it to start up and initialize..."
 sleep 2
 
@@ -241,11 +260,13 @@ ${TMP_DIR}/ziti/ziti edge create identity service zpire-jwtServer \
 # create two demo services
 ${TMP_DIR}/ziti/ziti edge create config openziti-only-intercept.v1 intercept.v1 \
   '{"protocols":["tcp"],"addresses":["openziti.ziti"], "portRanges":[{"low":443, "high":443}]}'
-${TMP_DIR}/ziti/ziti edge create service openziti-only-service --configs openziti-only-intercept.v1 -a demo-services
+${TMP_DIR}/ziti/ziti edge create service openziti-only-service \
+  --configs openziti-only-intercept.v1 -a demo-services
 
 ${TMP_DIR}/ziti/ziti edge create config openziti-and-spire-intercept.v1 intercept.v1 \
   '{"protocols":["tcp"],"addresses":["openziti.spire.ziti"], "portRanges":[{"low":443, "high":443}]}'
-${TMP_DIR}/ziti/ziti edge create service openziti-and-spire-service --configs openziti-and-spire-intercept.v1 -a demo-services
+${TMP_DIR}/ziti/ziti edge create service openziti-and-spire-service \
+  --configs openziti-and-spire-intercept.v1 -a demo-services
 
 # authorize identities to dial/bind
 ${TMP_DIR}/ziti/ziti edge create service-policy demo-services-bind-policy Bind \
@@ -255,7 +276,9 @@ ${TMP_DIR}/ziti/ziti edge create service-policy demo-services-dial-policy Dial \
   --service-roles '#demo-services' \
   --identity-roles '#demo-services-client'
 
-${TMP_DIR}/ziti/ziti edge create identity user local.docker.user -a demo-services-client -o ${TMP_DIR}/local.docker.user.jwt
+${TMP_DIR}/ziti/ziti edge create identity user local.docker.user \
+  -a demo-services-client \
+  -o ${TMP_DIR}/local.docker.user.jwt
 
 echo "ziti configuration applied. test identity for tunneler at: ${TMP_DIR}/local.docker.user.jwt"
 echo " "
