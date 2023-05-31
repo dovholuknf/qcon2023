@@ -14,7 +14,7 @@ func main() {
 	portToUse := common.InsecurePort
 	httpScheme := "http"
 	server := "localhost"
-	baseURL := fmt.Sprintf("%s://%s:%d/domath", server, httpScheme, portToUse)
+	baseURL := fmt.Sprintf("%s://%s:%d/domath", httpScheme, server, portToUse)
 	params := url.Values{}
 	params.Set("input1", os.Args[1])
 	params.Set("operator", os.Args[2])
