@@ -14,12 +14,18 @@ if [[ $ETH0_IP == "" ]]; then
   echo -n "ETH0_IP not set. Trying to determine the IP to use from: wlan0... "
   ETH0_IP=$(ip addr show wlan0 | grep "inet\b" | awk '{print $2}' | cut -d/ -f1)
   if [[ $ETH0_IP == "" ]]; then
-    echo -n "ETH0_IP not set. Trying to determine the IP to use from: eth0... "
-    ETH0_IP=$(ip addr show eth0 | grep "inet\b" | awk '{print $2}' | cut -d/ -f1)
+    echo -n "ETH0_IP not set. Trying to determine the IP to use from: wlo1... "
+    ETH0_IP=$(ip addr show wlo1 | grep "inet\b" | awk '{print $2}' | cut -d/ -f1)
     if [[ $ETH0_IP == "" ]]; then
-      echo "ERROR  : ETH0_IP not determined! The script cannot complete."
-      echo "         Please set an environment variable named: ETH0_IP before before continuing"
-      return
+      echo -n "ETH0_IP not set. Trying to determine the IP to use from: eth0... "
+      ETH0_IP=$(ip addr show eth0 | grep "inet\b" | awk '{print $2}' | cut -d/ -f1)
+      if [[ $ETH0_IP == "" ]]; then
+        echo "ERROR  : ETH0_IP not determined! The script cannot complete."
+        echo "         Please set an environment variable named: ETH0_IP before before continuing"
+        return
+      else
+        echo "ETH0_IP found using eth0: ${ETH0_IP}"
+      fi
     else
       echo "ETH0_IP found using eth0: ${ETH0_IP}"
     fi
