@@ -51,19 +51,19 @@ mkdir -p ${TMP_DIR}
 
 cd ${SOURCE_DIR}/src
 echo "compiling all the samples with go build..."
-echo "nosecurity-*"
+echo "  - nosecurity-*"
 go build -o ${TMP_DIR}/nosecurity-server part1_nosecurity/server/main.go
 go build -o ${TMP_DIR}/nosecurity-client part1_nosecurity/client/main.go
 
-echo "spire-*"
+echo "  - spire-*"
 go build -o ${TMP_DIR}/spire-server part2_spire/server/main.go
 go build -o ${TMP_DIR}/spire-client part2_spire/client/main.go
 
-echo "openziti-*"
+echo "  - openziti-*"
 go build -o ${TMP_DIR}/openziti-server part3_openziti/server/main.go
 go build -o ${TMP_DIR}/openziti-client part3_openziti/client/main.go
 
-echo "spire-and-openziti-*"
+echo "  - spire-and-openziti-*"
 go build -o ${TMP_DIR}/spire-and-openziti-server part4_spire_and_openziti/server/main.go
 go build -o ${TMP_DIR}/spire-and-openziti-client part4_spire_and_openziti/client/main.go
 
@@ -301,3 +301,32 @@ echo " "
 echo "   ${TMP_DIR}/spire-and-openziti-server"
 echo "   ${TMP_DIR}/spire-and-openziti-client 10 \"*\" 2"
 echo " "
+
+function deleteSvidBySelector {
+  entry_id=$($SPIRE_CMD entry show -selector "unix:user:${USER}" | grep "Entry ID" | cut -d ":" -f2 | tr -d " ")
+  $SPIRE_CMD entry delete -entryID $entry_id
+}
+
+function debugAsServer {
+  deleteSvidBySelector "unix:user:${USER}"
+
+  $SPIRE_CMD entry create \
+    -spiffeID ${SPIFFE_SERVER_ID} \
+    -parentID spiffe://openziti/ids \
+    -dns openziti.ziti \
+    -dns openziti.spire.ziti \
+    -dns localhost \
+    -selector "unix:user:$USER"
+}
+
+function debugAsClient {
+  deleteSvidBySelector "unix:user:${USER}"
+
+  $SPIRE_CMD entry create \
+    -spiffeID ${SPIFFE_CLIENT_ID} \
+    -parentID spiffe://openziti/ids \
+    -dns openziti.ziti \
+    -dns openziti.spire.ziti \
+    -dns localhost \
+    -selector "unix:user:$USER"
+}

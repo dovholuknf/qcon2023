@@ -35,7 +35,7 @@ func main() {
 
 	mathUrl := fmt.Sprintf("%s?%s", baseURL, params.Encode())
 
-	spire.SecureDefaultHttpClientWithSpiffe(context.Background(), opts)
+	spire.SecureDefaultHttpClientWithSpireMTLS(context.Background(), opts)
 
 	req, err := http.NewRequest("GET", mathUrl, nil)
 	if err != nil {

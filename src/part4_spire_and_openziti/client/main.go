@@ -39,7 +39,7 @@ func main() {
 	mathUrl := fmt.Sprintf("%s?%s", baseURL, params.Encode())
 
 	transport := openziti.CreateZitifiedTransport(jwt)
-	tlsConfig := spire.CreateSpiffeEnabledTlsConfig(context.Background(), opts)
+	tlsConfig := spire.CreateSpireMTLS(context.Background(), opts)
 	transport.TLSClientConfig = tlsConfig
 	http.DefaultTransport = transport
 

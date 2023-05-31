@@ -6,10 +6,12 @@ import (
 	"fmt"
 	"github.com/dovholuknf/qcon2023/shared/common"
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
+	"github.com/spiffe/go-spiffe/v2/spiffetls"
 	"github.com/spiffe/go-spiffe/v2/spiffetls/tlsconfig"
 	"github.com/spiffe/go-spiffe/v2/svid/jwtsvid"
 	"github.com/spiffe/go-spiffe/v2/workloadapi"
 	"log"
+	"net"
 	"net/http"
 	"strings"
 	"time"
@@ -87,6 +89,19 @@ func withSVIDClaims(ctx context.Context, claims map[string]interface{}) context.
 	return context.WithValue(ctx, svidClaimsKey{}, claims)
 }
 
+func ConfigureForMutualTLS(ctx context.Context, server *http.Server) {
+	opts := ctx.Value("workloadApiOpts").(workloadapi.SourceOption)
+	source, err := workloadapi.NewX509Source(ctx, opts)
+	if err != nil {
+		panic(err)
+	}
+	// Create a `tls.Config` to allow mTLS connections, and verify that presented certificate has SPIFFE ID `spiffe://example.org/client`
+	clientID := spiffeid.RequireFromString(common.SpiffeClientId)
+	tlsConfig := tlsconfig.MTLSServerConfig(source, source, tlsconfig.AuthorizeID(clientID))
+
+	server.TLSConfig = tlsConfig
+}
+
 func SecureWithSpire(ctx context.Context, server *http.Server) {
 	opts := ctx.Value("workloadApiOpts").(workloadapi.SourceOption)
 	x509Source, err := workloadapi.NewX509Source(ctx, opts)
@@ -114,5 +129,53 @@ func SecureDefaultHttpClientWithSpiffe(ctx context.Context, opts workloadapi.Sou
 	t := &http.Transport{
 		TLSClientConfig: CreateSpiffeEnabledTlsConfig(ctx, opts),
 	}
+
+	serverSvid, err := spiffeid.FromString(common.SpiffeServerId)
+	if err != nil {
+		panic(err)
+	}
+
+	t.DialContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
+		return spiffetls.DialWithMode(ctx, "tcp",
+			fmt.Sprintf("localhost:%d", common.SpireSecuredPort),
+			spiffetls.MTLSClientWithSourceOptions(
+				tlsconfig.AuthorizeID(serverSvid),
+				opts))
+	}
 	http.DefaultClient.Transport = t
+}
+
+func CreateMTLSListener(ctx context.Context, opts workloadapi.SourceOption) net.Listener {
+	clientSvid, err := spiffeid.FromString(common.SpiffeServerId)
+	if err != nil {
+		panic(err)
+	}
+
+	listener, err := spiffetls.ListenWithMode(ctx, "tcp", "localhost:1234",
+		spiffetls.MTLSServerWithSourceOptions(
+			tlsconfig.AuthorizeID(clientSvid),
+			opts,
+		))
+
+	if err != nil {
+		panic(err)
+	}
+	return listener
+}
+
+func SecureDefaultHttpClientWithSpireMTLS(ctx context.Context, opts workloadapi.SourceOption) {
+	t := &http.Transport{
+		TLSClientConfig: CreateSpireMTLS(ctx, opts),
+	}
+
+	http.DefaultClient.Transport = t
+}
+
+func CreateSpireMTLS(ctx context.Context, opts workloadapi.SourceOption) *tls.Config {
+	source, err := workloadapi.NewX509Source(ctx, opts)
+	if err != nil {
+		panic(err)
+	}
+	serverID := spiffeid.RequireFromString(common.SpiffeServerId)
+	return tlsconfig.MTLSClientConfig(source, source, tlsconfig.AuthorizeID(serverID))
 }

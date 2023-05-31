@@ -14,8 +14,8 @@ func main() {
 	opts := workloadapi.WithClientOptions(workloadapi.WithAddr(common.SocketPath))
 	ctx = context.WithValue(ctx, "workloadApiOpts", opts)
 
-	httpServer := common.CreateServer(ctx, spire.SecureWithSpireJwt)
-	spire.SecureWithSpire(ctx, httpServer)
+	httpServer := common.CreateServer(ctx, nil)
+	spire.ConfigureForMutualTLS(ctx, httpServer)
 
 	jwt, _ := spire.FetchJwt(common.SpiffeServerId, opts)
 	ln := openziti.CreateOpenZitiListener(jwt, "openziti-and-spire-service" /*common.SpireSecuredPort*/)
