@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/pem"
 	"fmt"
 	"github.com/dovholuknf/qcon2023/shared/common"
 	"github.com/dovholuknf/qcon2023/shared/openziti"
@@ -26,7 +27,13 @@ func main() {
 	opts := workloadapi.WithClientOptions(workloadapi.WithAddr(common.SocketPath))
 	jwt, _ := spire.FetchJwt(common.SpiffeServerId, opts)
 	if len(os.Args) > 4 && os.Args[4] == "showcurl" {
-		fmt.Printf("This is the equivalent curl echo'ed from bash:\n  echo Response: $(curl -sk -H \"Authorization: Bearer %s\" '%s?input1=%v&operator=%v&input2=%v')\n",
+		svid, _ := workloadapi.FetchX509SVID(context.Background(), workloadapi.WithAddr(common.SocketPath))
+		c, k, _ := svid.MarshalRaw()
+		keyFile, _ := os.Create("./key.pem")
+		_ = pem.Encode(keyFile, &pem.Block{Type: "PRIVATE KEY", Bytes: k})
+		certFile, _ := os.Create("./cert.pem")
+		_ = pem.Encode(certFile, &pem.Block{Type: "CERTIFICATE", Bytes: c})
+		fmt.Printf("This is the equivalent curl echo'ed from bash:\n  echo Response: $(curl -sk --cert ./cert.pem --key ./key.pem -H \"Authorization: Bearer %s\" '%s?input1=%v&operator=%v&input2=%v')\n",
 			jwt,
 			baseURL,
 			os.Args[1],
@@ -34,6 +41,7 @@ func main() {
 			os.Args[3])
 		fmt.Println("\n    Of course you know - this won't _actually_ work, right?")
 		fmt.Println("    If you want it to work, provision and enroll an identity in a locally running tunneler\n")
+		fmt.Println("    Notice how you had to supply a key and cert in this example too??? Very cool!\n")
 	}
 
 	mathUrl := fmt.Sprintf("%s?%s", baseURL, params.Encode())
