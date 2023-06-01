@@ -32,7 +32,7 @@ func main() {
 			os.Args[1],
 			url.QueryEscape(os.Args[2]),
 			os.Args[3])
-		fmt.Println("    Notice how you have to supply a key and cert in this example??? Very cool!\n")
+		fmt.Println("\n    Notice how you have to supply a key and cert in this example??? Very cool!\n")
 	}
 
 	mathUrl := fmt.Sprintf("%s?%s", baseURL, params.Encode())
