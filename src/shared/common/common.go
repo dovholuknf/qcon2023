@@ -4,8 +4,10 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log"
 	"net"
 	"net/http"
+	"net/url"
 	"strconv"
 )
 
@@ -18,7 +20,7 @@ const (
 	SpiffeServerId   = "spiffe://openziti/jwtServer"
 )
 
-func CreateServer(ctx context.Context) *http.Server {
+func CreateServer() *http.Server {
 	svr := &http.Server{}
 	mux := http.NewServeMux()
 	mux.Handle("/", http.HandlerFunc(index))
@@ -73,6 +75,35 @@ func mathHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	_, _ = fmt.Fprintf(w, "Result: %.2f", result)
+}
+
+func CreateBaseUrlForClient(port int16, scheme, host string) string {
+	return fmt.Sprintf("%s://%s:%d/domath", scheme, host, port)
+}
+
+func CreateUrlForClient(baseURL, input1, operator, input2 string) string {
+	params := url.Values{}
+	params.Set("input1", input1)
+	params.Set("operator", operator)
+	params.Set("input2", input2)
+
+	return fmt.Sprintf("%s?%s", baseURL, params.Encode())
+}
+
+func CallTheApi(mathURL string) {
+	req, err := http.NewRequest("GET", mathURL, nil)
+	if err != nil {
+		log.Fatalf("unable to create request: %v", err)
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		log.Fatalf("Error making the request: %v", err)
+	}
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		log.Fatalf("Error reading the response: %v", err)
+	}
+	fmt.Println("Response:", string(body))
 }
 
 type HandlerSecurityFunc func(ctx context.Context, f http.HandlerFunc) http.Handler

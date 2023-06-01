@@ -9,12 +9,10 @@ import (
 )
 
 func main() {
-	ctx := context.Background()
 	opts := workloadapi.WithClientOptions(workloadapi.WithAddr(common.SocketPath))
-	ctx = context.WithValue(ctx, "workloadApiOpts", opts)
 
-	httpServer := common.CreateServer(ctx)
-	spire.ConfigureForMutualTLS(ctx, httpServer)
+	httpServer := common.CreateServer()
+	spire.ConfigureForMutualTLS(context.Background(), httpServer, opts)
 
 	ln := common.CreateUnderlayListener(common.SpireSecuredPort)
 	log.Printf("Starting server secured by SPIRE on %d\n", common.SpireSecuredPort)

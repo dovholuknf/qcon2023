@@ -3,8 +3,10 @@ package openziti
 import (
 	"context"
 	"github.com/dovholuknf/qcon2023/shared/common"
+	"github.com/dovholuknf/qcon2023/shared/spire"
 	edge_apis "github.com/openziti/sdk-golang/edge-apis"
 	"github.com/openziti/sdk-golang/ziti"
+	"github.com/spiffe/go-spiffe/v2/workloadapi"
 	"log"
 	"net"
 	"net/http"
@@ -67,4 +69,11 @@ func CreateZitifiedTransport(jwt string) *http.Transport {
 
 func SecureDefaultHttpClientWithOpenZiti(jwt string) {
 	http.DefaultClient.Transport = CreateZitifiedTransport(jwt)
+}
+
+func SecureDefaultHttpClientWithSpireAndOpenZiti(jwt string, opts workloadapi.SourceOption) {
+	transport := CreateZitifiedTransport(jwt)
+	tlsConfig := spire.CreateSpireMTLS(context.Background(), opts)
+	transport.TLSClientConfig = tlsConfig
+	http.DefaultClient.Transport = transport
 }

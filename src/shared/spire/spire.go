@@ -74,8 +74,7 @@ func withSVIDClaims(ctx context.Context, claims map[string]interface{}) context.
 	return context.WithValue(ctx, svidClaimsKey{}, claims)
 }
 
-func ConfigureForMutualTLS(ctx context.Context, server *http.Server) {
-	opts := ctx.Value("workloadApiOpts").(workloadapi.SourceOption)
+func ConfigureForMutualTLS(ctx context.Context, server *http.Server, opts workloadapi.SourceOption) {
 	source, err := workloadapi.NewX509Source(ctx, opts)
 	if err != nil {
 		panic(err)

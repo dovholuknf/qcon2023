@@ -10,15 +10,13 @@ import (
 )
 
 func main() {
-	ctx := context.Background()
 	opts := workloadapi.WithClientOptions(workloadapi.WithAddr(common.SocketPath))
-	ctx = context.WithValue(ctx, "workloadApiOpts", opts)
 
-	httpServer := common.CreateServer(ctx)
-	spire.ConfigureForMutualTLS(ctx, httpServer)
-
+	httpServer := common.CreateServer()
+	spire.ConfigureForMutualTLS(context.Background(), httpServer, opts)
 	jwt, _ := spire.FetchJwt(common.SpiffeServerId, opts)
-	ln := openziti.CreateOpenZitiListener(jwt, "openziti-and-spire-service" /*common.SpireSecuredPort*/)
+
+	ln := openziti.CreateOpenZitiListener(jwt, "openziti-and-spire-service")
 	log.Printf("Starting server secured by SPIRE and OpenZiti on the OpenZiti overlay, no open port\n")
 	if err := httpServer.ServeTLS(ln, "", ""); err != nil {
 		log.Fatal(err)
