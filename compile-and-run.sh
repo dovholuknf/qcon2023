@@ -265,12 +265,12 @@ ${TMP_DIR}/ziti/ziti edge create identity service zpire-jwtServer \
 
 # create two demo services
 ${TMP_DIR}/ziti/ziti edge create config openziti-only-intercept.v1 intercept.v1 \
-  '{"protocols":["tcp"],"addresses":["openziti.ziti"], "portRanges":[{"low":443, "high":443}]}'
+  '{"protocols":["tcp"],"addresses":["openziti.ziti"], "portRanges":[{"low":18082, "high":18082}]}'
 ${TMP_DIR}/ziti/ziti edge create service openziti-only-service \
   --configs openziti-only-intercept.v1 -a demo-services
 
 ${TMP_DIR}/ziti/ziti edge create config openziti-and-spire-intercept.v1 intercept.v1 \
-  '{"protocols":["tcp"],"addresses":["openziti.spire.ziti"], "portRanges":[{"low":443, "high":443}]}'
+  '{"protocols":["tcp"],"addresses":["openziti.spire.ziti"], "portRanges":[{"low":18082, "high":18082}]}'
 ${TMP_DIR}/ziti/ziti edge create service openziti-and-spire-service \
   --configs openziti-and-spire-intercept.v1 -a demo-services
 

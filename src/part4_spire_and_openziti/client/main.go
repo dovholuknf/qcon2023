@@ -10,7 +10,7 @@ import (
 )
 
 func main() {
-	baseURL := common.CreateBaseUrlForClient(443, "https", "openziti.spire.ziti")
+	baseURL := common.CreateBaseUrlForClient(common.OpenZitiPort, "https", "openziti.spire.ziti")
 	mathUrl := common.CreateUrlForClient(baseURL, os.Args[1], os.Args[2], os.Args[3])
 	opts := workloadapi.WithClientOptions(workloadapi.WithAddr(common.SocketPath))
 	if len(os.Args) > 4 && os.Args[4] == "showcurl" {

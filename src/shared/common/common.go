@@ -14,6 +14,7 @@ import (
 const (
 	InsecurePort     = 18080
 	SpireSecuredPort = 18081
+	OpenZitiPort     = 18082
 	OpenZitiRootUrl  = "https://localhost:1280"
 	SocketPath       = "unix:///tmp/spire-agent/public/api.sock"
 	SpiffeClientId   = "spiffe://openziti/jwtClient"
