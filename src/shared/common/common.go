@@ -18,18 +18,11 @@ const (
 	SpiffeServerId   = "spiffe://openziti/jwtServer"
 )
 
-type HandlerSecurityFunc func(ctx context.Context, f http.HandlerFunc) http.Handler
-
-func CreateServer(ctx context.Context, secFunc HandlerSecurityFunc) *http.Server {
+func CreateServer(ctx context.Context) *http.Server {
 	svr := &http.Server{}
 	mux := http.NewServeMux()
-	if secFunc != nil {
-		mux.Handle("/", secFunc(ctx, index))
-		mux.Handle("/domath", secFunc(ctx, mathHandler))
-	} else {
-		mux.Handle("/", http.HandlerFunc(index))
-		mux.Handle("/domath", http.HandlerFunc(mathHandler))
-	}
+	mux.Handle("/", http.HandlerFunc(index))
+	mux.Handle("/domath", http.HandlerFunc(mathHandler))
 	svr.Handler = mux
 	return svr
 }
@@ -80,4 +73,15 @@ func mathHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	_, _ = fmt.Fprintf(w, "Result: %.2f", result)
+}
+
+type HandlerSecurityFunc func(ctx context.Context, f http.HandlerFunc) http.Handler
+
+func CreateServerWithSecFunc(ctx context.Context, secFunc HandlerSecurityFunc) *http.Server {
+	svr := &http.Server{}
+	mux := http.NewServeMux()
+	mux.Handle("/", secFunc(ctx, index))
+	mux.Handle("/domath", secFunc(ctx, mathHandler))
+	svr.Handler = mux
+	return svr
 }

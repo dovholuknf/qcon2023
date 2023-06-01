@@ -6,7 +6,7 @@ import (
 )
 
 func main() {
-	underlayServer := common.CreateServer(nil, nil)
+	underlayServer := common.CreateServer(nil)
 	ln := common.CreateUnderlayListener(common.InsecurePort)
 	log.Printf("Starting insecure server on %d\n", common.InsecurePort)
 	if err := underlayServer.Serve(ln); err != nil {

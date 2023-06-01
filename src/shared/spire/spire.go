@@ -6,12 +6,10 @@ import (
 	"fmt"
 	"github.com/dovholuknf/qcon2023/shared/common"
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
-	"github.com/spiffe/go-spiffe/v2/spiffetls"
 	"github.com/spiffe/go-spiffe/v2/spiffetls/tlsconfig"
 	"github.com/spiffe/go-spiffe/v2/svid/jwtsvid"
 	"github.com/spiffe/go-spiffe/v2/workloadapi"
 	"log"
-	"net"
 	"net/http"
 	"strings"
 	"time"
@@ -35,21 +33,6 @@ func FetchJwt(audience string, opts workloadapi.SourceOption) (string, error) {
 		return "", err
 	}
 	return svid.Marshal(), nil
-}
-
-func SecureWithSpireJwt(ctx context.Context, handlerFunc http.HandlerFunc) http.Handler {
-	opts := ctx.Value("workloadApiOpts").(workloadapi.SourceOption)
-	jwtSource, err := workloadapi.NewJWTSource(ctx, opts)
-	if err != nil {
-		log.Printf("unable to create JWTSource: %w", err)
-		panic(err)
-	}
-
-	auth := &authenticator{
-		jwtSource: jwtSource,
-		audiences: []string{common.SpiffeServerId},
-	}
-	return auth.authenticateClient(handlerFunc)
 }
 
 func (a *authenticator) authenticateClient(next http.Handler) http.Handler {
@@ -102,65 +85,13 @@ func ConfigureForMutualTLS(ctx context.Context, server *http.Server) {
 	server.TLSConfig = tlsConfig
 }
 
-func SecureWithSpire(ctx context.Context, server *http.Server) {
-	opts := ctx.Value("workloadApiOpts").(workloadapi.SourceOption)
-	x509Source, err := workloadapi.NewX509Source(ctx, opts)
+func CreateSpireMTLS(ctx context.Context, opts workloadapi.SourceOption) *tls.Config {
+	source, err := workloadapi.NewX509Source(ctx, opts)
 	if err != nil {
-		log.Printf("unable to create X509Source: %w", err)
-		return
+		panic(err)
 	}
-	server.TLSConfig = tlsconfig.TLSServerConfig(x509Source)
-}
-
-func CreateSpiffeEnabledTlsConfig(ctx context.Context, opts workloadapi.SourceOption) *tls.Config {
-	// Create X509 source to fetch bundle certificate used to verify presented certificate from server
-	x509Source, err := workloadapi.NewX509Source(ctx, opts)
-	if err != nil {
-		log.Fatalf("unable to create X509Source: %v", err)
-	}
-
-	// Create a `tls.Config` with configuration to allow TLS communication, and verify that presented certificate
-	//from server has SPIFFE ID `spiffe://openziti/jwtServer`
 	serverID := spiffeid.RequireFromString(common.SpiffeServerId)
-	return tlsconfig.TLSClientConfig(x509Source, tlsconfig.AuthorizeID(serverID))
-}
-
-func SecureDefaultHttpClientWithSpiffe(ctx context.Context, opts workloadapi.SourceOption) {
-	t := &http.Transport{
-		TLSClientConfig: CreateSpiffeEnabledTlsConfig(ctx, opts),
-	}
-
-	serverSvid, err := spiffeid.FromString(common.SpiffeServerId)
-	if err != nil {
-		panic(err)
-	}
-
-	t.DialContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
-		return spiffetls.DialWithMode(ctx, "tcp",
-			fmt.Sprintf("localhost:%d", common.SpireSecuredPort),
-			spiffetls.MTLSClientWithSourceOptions(
-				tlsconfig.AuthorizeID(serverSvid),
-				opts))
-	}
-	http.DefaultClient.Transport = t
-}
-
-func CreateMTLSListener(ctx context.Context, opts workloadapi.SourceOption) net.Listener {
-	clientSvid, err := spiffeid.FromString(common.SpiffeServerId)
-	if err != nil {
-		panic(err)
-	}
-
-	listener, err := spiffetls.ListenWithMode(ctx, "tcp", "localhost:1234",
-		spiffetls.MTLSServerWithSourceOptions(
-			tlsconfig.AuthorizeID(clientSvid),
-			opts,
-		))
-
-	if err != nil {
-		panic(err)
-	}
-	return listener
+	return tlsconfig.MTLSClientConfig(source, source, tlsconfig.AuthorizeID(serverID))
 }
 
 func SecureDefaultHttpClientWithSpireMTLS(ctx context.Context, opts workloadapi.SourceOption) {
@@ -171,11 +102,25 @@ func SecureDefaultHttpClientWithSpireMTLS(ctx context.Context, opts workloadapi.
 	http.DefaultClient.Transport = t
 }
 
-func CreateSpireMTLS(ctx context.Context, opts workloadapi.SourceOption) *tls.Config {
-	source, err := workloadapi.NewX509Source(ctx, opts)
+func SecureWithSpireTLS(ctx context.Context, opts workloadapi.SourceOption) *tls.Config {
+	x509Source, err := workloadapi.NewX509Source(ctx, opts)
 	if err != nil {
 		panic(err)
 	}
-	serverID := spiffeid.RequireFromString(common.SpiffeServerId)
-	return tlsconfig.MTLSClientConfig(source, source, tlsconfig.AuthorizeID(serverID))
+	return tlsconfig.TLSServerConfig(x509Source)
+}
+
+func SecureWithSpireJwt(ctx context.Context, handlerFunc http.HandlerFunc) http.Handler {
+	opts := ctx.Value("workloadApiOpts").(workloadapi.SourceOption)
+	jwtSource, err := workloadapi.NewJWTSource(ctx, opts)
+	if err != nil {
+		log.Printf("unable to create JWTSource: %w", err)
+		panic(err)
+	}
+
+	auth := &authenticator{
+		jwtSource: jwtSource,
+		audiences: []string{common.SpiffeServerId},
+	}
+	return auth.authenticateClient(handlerFunc)
 }

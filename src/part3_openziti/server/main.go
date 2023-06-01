@@ -14,7 +14,7 @@ func main() {
 	opts := workloadapi.WithClientOptions(workloadapi.WithAddr(common.SocketPath))
 	ctx = context.WithValue(ctx, "workloadApiOpts", opts)
 
-	httpServer := common.CreateServer(ctx, nil)
+	httpServer := common.CreateServer(ctx)
 	jwt, _ := spire.FetchJwt(common.SpiffeServerId, opts)
 	ln := openziti.CreateOpenZitiListener(jwt, "openziti-only-service")
 	log.Printf("Starting server secured by OpenZiti on the OpenZiti overlay, no open port\n")

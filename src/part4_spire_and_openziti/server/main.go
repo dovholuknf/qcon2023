@@ -14,7 +14,7 @@ func main() {
 	opts := workloadapi.WithClientOptions(workloadapi.WithAddr(common.SocketPath))
 	ctx = context.WithValue(ctx, "workloadApiOpts", opts)
 
-	httpServer := common.CreateServer(ctx, nil)
+	httpServer := common.CreateServer(ctx)
 	spire.ConfigureForMutualTLS(ctx, httpServer)
 
 	jwt, _ := spire.FetchJwt(common.SpiffeServerId, opts)
