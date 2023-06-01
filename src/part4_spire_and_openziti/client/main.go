@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"encoding/pem"
 	"fmt"
 	"github.com/dovholuknf/qcon2023/shared/common"
 	"github.com/dovholuknf/qcon2023/shared/openziti"
@@ -27,12 +26,7 @@ func main() {
 	opts := workloadapi.WithClientOptions(workloadapi.WithAddr(common.SocketPath))
 	jwt, _ := spire.FetchJwt(common.SpiffeServerId, opts)
 	if len(os.Args) > 4 && os.Args[4] == "showcurl" {
-		svid, _ := workloadapi.FetchX509SVID(context.Background(), workloadapi.WithAddr(common.SocketPath))
-		c, k, _ := svid.MarshalRaw()
-		keyFile, _ := os.Create("./key.pem")
-		_ = pem.Encode(keyFile, &pem.Block{Type: "PRIVATE KEY", Bytes: k})
-		certFile, _ := os.Create("./cert.pem")
-		_ = pem.Encode(certFile, &pem.Block{Type: "CERTIFICATE", Bytes: c})
+		spire.WriteKeyAndCertToFiles()
 		fmt.Printf("This is the equivalent curl echo'ed from bash:\n  echo Response: $(curl -sk --cert ./cert.pem --key ./key.pem -H \"Authorization: Bearer %s\" '%s?input1=%v&operator=%v&input2=%v')\n",
 			jwt,
 			baseURL,

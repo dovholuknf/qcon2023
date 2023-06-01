@@ -25,12 +25,14 @@ func main() {
 	opts := workloadapi.WithClientOptions(workloadapi.WithAddr(common.SocketPath))
 	jwt, _ := spire.FetchJwt(common.SpiffeServerId, opts)
 	if len(os.Args) > 4 && os.Args[4] == "showcurl" {
-		fmt.Printf("This is the equivalent curl echo'ed from bash:\n  echo Response: $(curl -sk -H \"Authorization: Bearer %s\" '%s?input1=%v&operator=%v&input2=%v')\n",
+		spire.WriteKeyAndCertToFiles()
+		fmt.Printf("This is the equivalent curl echo'ed from bash:\n  echo Response: $(curl -sk --cert ./cert.pem --key ./key.pem -H \"Authorization: Bearer %s\" '%s?input1=%v&operator=%v&input2=%v')\n",
 			jwt,
 			baseURL,
 			os.Args[1],
 			url.QueryEscape(os.Args[2]),
 			os.Args[3])
+		fmt.Println("    Notice how you have to supply a key and cert in this example??? Very cool!\n")
 	}
 
 	mathUrl := fmt.Sprintf("%s?%s", baseURL, params.Encode())

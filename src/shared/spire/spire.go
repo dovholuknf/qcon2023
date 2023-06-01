@@ -3,6 +3,7 @@ package spire
 import (
 	"context"
 	"crypto/tls"
+	"encoding/pem"
 	"fmt"
 	"github.com/dovholuknf/qcon2023/shared/common"
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
@@ -11,6 +12,7 @@ import (
 	"github.com/spiffe/go-spiffe/v2/workloadapi"
 	"log"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 )
@@ -100,6 +102,15 @@ func SecureDefaultHttpClientWithSpireMTLS(ctx context.Context, opts workloadapi.
 	}
 
 	http.DefaultClient.Transport = t
+}
+
+func WriteKeyAndCertToFiles() {
+	svid, _ := workloadapi.FetchX509SVID(context.Background(), workloadapi.WithAddr(common.SocketPath))
+	c, k, _ := svid.MarshalRaw()
+	keyFile, _ := os.Create("./key.pem")
+	_ = pem.Encode(keyFile, &pem.Block{Type: "PRIVATE KEY", Bytes: k})
+	certFile, _ := os.Create("./cert.pem")
+	_ = pem.Encode(certFile, &pem.Block{Type: "CERTIFICATE", Bytes: c})
 }
 
 func SecureWithSpireTLS(ctx context.Context, opts workloadapi.SourceOption) *tls.Config {
