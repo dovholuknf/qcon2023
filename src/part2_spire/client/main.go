@@ -10,8 +10,8 @@ import (
 )
 
 func main() {
-	baseURL := common.CreateBaseUrlForClient(common.SpireSecuredPort, "https", "localhost")
-	mathUrl := common.CreateUrlForClient(baseURL, os.Args[1], os.Args[2], os.Args[3])
+	baseURL := common.CreateMathUrl(common.SpireSecuredPort, "https", "localhost")
+	mathUrl := common.AddMathParams(baseURL, os.Args[1], os.Args[2], os.Args[3])
 	opts := workloadapi.WithClientOptions(workloadapi.WithAddr(common.SocketPath))
 	if len(os.Args) > 4 && os.Args[4] == "showcurl" {
 		spire.WriteKeyAndCertToFiles()

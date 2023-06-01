@@ -9,10 +9,9 @@ import (
 )
 
 func main() {
-	opts := workloadapi.WithClientOptions(workloadapi.WithAddr(common.SocketPath))
-
 	httpServer := common.CreateServer()
 
+	opts := workloadapi.WithClientOptions(workloadapi.WithAddr(common.SocketPath))
 	jwt, _ := spire.FetchJwt(common.SpiffeServerId, opts)
 
 	ln := openziti.CreateOpenZitiListener(jwt, "openziti-only-service")

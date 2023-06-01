@@ -78,11 +78,11 @@ func mathHandler(w http.ResponseWriter, r *http.Request) {
 	_, _ = fmt.Fprintf(w, "Result: %.2f", result)
 }
 
-func CreateBaseUrlForClient(port int16, scheme, host string) string {
+func CreateMathUrl(port int16, scheme, host string) string {
 	return fmt.Sprintf("%s://%s:%d/domath", scheme, host, port)
 }
 
-func CreateUrlForClient(baseURL, input1, operator, input2 string) string {
+func AddMathParams(baseURL, input1, operator, input2 string) string {
 	params := url.Values{}
 	params.Set("input1", input1)
 	params.Set("operator", operator)

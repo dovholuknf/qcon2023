@@ -9,9 +9,9 @@ import (
 )
 
 func main() {
-	opts := workloadapi.WithClientOptions(workloadapi.WithAddr(common.SocketPath))
-
 	httpServer := common.CreateServer()
+
+	opts := workloadapi.WithClientOptions(workloadapi.WithAddr(common.SocketPath))
 	spire.ConfigureForMutualTLS(context.Background(), httpServer, opts)
 
 	ln := common.CreateUnderlayListener(common.SpireSecuredPort)

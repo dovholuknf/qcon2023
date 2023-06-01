@@ -37,37 +37,6 @@ func FetchJwt(audience string, opts workloadapi.SourceOption) (string, error) {
 	return svid.Marshal(), nil
 }
 
-func (a *authenticator) authenticateClient(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		fields := strings.Fields(req.Header.Get("Authorization"))
-		if len(fields) != 2 || fields[0] != "Bearer" {
-			log.Print("Malformed header")
-			http.Error(w, "Invalid or unsupported authorization header", http.StatusUnauthorized)
-			return
-		}
-
-		token := fields[1]
-		log.Printf("JWT: %s", token)
-		// Parse and validate token against fetched bundle from jwtSource,
-		// an alternative is using `workloadapi.ValidateJWTSVID` that will
-		// attest against SPIRE on each call and validate token
-		svid, err := jwtsvid.ParseAndValidate(token, a.jwtSource, a.audiences)
-		if err != nil {
-			log.Printf("Invalid token: %v\n", err)
-			http.Error(w, "Unauthorized", http.StatusUnauthorized)
-			return
-		}
-		req = req.WithContext(withSVIDClaims(req.Context(), svid.Claims))
-		expectedId := common.SpiffeClientId
-		if svid.Claims["sub"] != expectedId {
-			log.Printf("sub mismatch. expected: %s, got %s", expectedId, svid.Claims["sub"])
-			http.Error(w, "Unauthorized", http.StatusUnauthorized)
-			return
-		}
-		next.ServeHTTP(w, req)
-	})
-}
-
 type svidClaimsKey struct{}
 
 func withSVIDClaims(ctx context.Context, claims map[string]interface{}) context.Context {
@@ -79,7 +48,9 @@ func ConfigureForMutualTLS(ctx context.Context, server *http.Server, opts worklo
 	if err != nil {
 		panic(err)
 	}
-	// Create a `tls.Config` to allow mTLS connections, and verify that presented certificate has SPIFFE ID `spiffe://example.org/client`
+
+	// Create a `tls.Config` to allow mTLS connections, and verify/authorize
+	// clients presenting certificates with SPIFFE ID `spiffe://example.org/client`
 	clientID := spiffeid.RequireFromString(common.SpiffeClientId)
 	tlsConfig := tlsconfig.MTLSServerConfig(source, source, tlsconfig.AuthorizeID(clientID))
 
@@ -118,6 +89,37 @@ func SecureWithSpireTLS(ctx context.Context, opts workloadapi.SourceOption) *tls
 		panic(err)
 	}
 	return tlsconfig.TLSServerConfig(x509Source)
+}
+
+func (a *authenticator) authenticateClient(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		fields := strings.Fields(req.Header.Get("Authorization"))
+		if len(fields) != 2 || fields[0] != "Bearer" {
+			log.Print("Malformed header")
+			http.Error(w, "Invalid or unsupported authorization header", http.StatusUnauthorized)
+			return
+		}
+
+		token := fields[1]
+		log.Printf("JWT: %s", token)
+		// Parse and validate token against fetched bundle from jwtSource,
+		// an alternative is using `workloadapi.ValidateJWTSVID` that will
+		// attest against SPIRE on each call and validate token
+		svid, err := jwtsvid.ParseAndValidate(token, a.jwtSource, a.audiences)
+		if err != nil {
+			log.Printf("Invalid token: %v\n", err)
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
+		req = req.WithContext(withSVIDClaims(req.Context(), svid.Claims))
+		expectedId := common.SpiffeClientId
+		if svid.Claims["sub"] != expectedId {
+			log.Printf("sub mismatch. expected: %s, got %s", expectedId, svid.Claims["sub"])
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
+		next.ServeHTTP(w, req)
+	})
 }
 
 func SecureWithSpireJwt(ctx context.Context, handlerFunc http.HandlerFunc) http.Handler {
