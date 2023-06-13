@@ -30,7 +30,7 @@ what commands need to be run and in what order for them to function. The
 script serves as a way for you to read and explore each command,
 understand what it does what it does, and why.
 
-### Dependencies, Prerequisties, Assumptions
+### Dependencies, Prerequisites, Assumptions
 
 The script has the following dependencies:
 
