@@ -45,8 +45,9 @@ func main() {
 	mux := http.NewServeMux()
 	mux.Handle("/add-me-to-openziti", http.HandlerFunc(addToOpenZiti))
 	svr.Handler = mux
-	ln := common.CreateUnderlayListener(common.InsecurePort)
-	log.Printf("Starting insecure server on %d\n", common.InsecurePort)
+	port := 18000
+	ln := common.CreateUnderlayListener(port)
+	log.Printf("Starting insecure server on %d\n", port)
 	if err := svr.Serve(ln); err != nil {
 		log.Fatal(err)
 	}
