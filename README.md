@@ -18,6 +18,8 @@ project. You can:
 * [Use OpenZiti for end to end encryption](./src/part3_openziti)
 * [Use SPIRE and OpenZiti together](./src/part4_spire_and_openziti)
 
+YouTube video presentation of the content in this repo: https://www.youtube.com/watch?v=uPbWkyg3IBc
+
 ## Running One or More Examples
 
 Regardless of which of the secure examples you run, to run them
