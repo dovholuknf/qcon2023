@@ -4,9 +4,9 @@
 #
 SOURCE_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 TMP_DIR=/tmp/dovholuknf/qcon2023
-SPIRE_VERSION=1.6.4
+SPIRE_VERSION=1.10.1
 SPIRE_CMD=${TMP_DIR}/spire-${SPIRE_VERSION}/bin/spire-server
-OPENZITI_VER=0.28.0
+OPENZITI_VER=1.1.8
 DL_ARCH=linux-amd64
 SPIFFE_CLIENT_ID=spiffe://openziti/jwtClient
 SPIFFE_SERVER_ID=spiffe://openziti/jwtServer
@@ -72,9 +72,13 @@ killall spire-agent
 killall oidc-discovery-provider
 
 cd ${TMP_DIR}
-echo "downloading and untarring SPIRE from https://github.com/spiffe/spire/releases/download/v${SPIRE_VERSION}/spire-${SPIRE_VERSION}-${DL_ARCH}-glibc.tar.gz"
-curl -s -N -L https://github.com/spiffe/spire/releases/download/v${SPIRE_VERSION}/spire-${SPIRE_VERSION}-${DL_ARCH}-glibc.tar.gz | tar xz
-curl -s -N -L https://github.com/spiffe/spire/releases/download/v${SPIRE_VERSION}/spire-extras-${SPIRE_VERSION}-${DL_ARCH}-glibc.tar.gz | tar xz
+SPIRE_DL="https://github.com/spiffe/spire/releases/download/v${SPIRE_VERSION}/spire-${SPIRE_VERSION}-${DL_ARCH}-musl.tar.gz"
+echo "downloading and untarring SPIRE from ${SPIRE_DL}"
+curl -s -N -L "${SPIRE_DL}" | tar xz
+
+SPIRE_EXTRAS_DL="https://github.com/spiffe/spire/releases/download/v${SPIRE_VERSION}/spire-extras-${SPIRE_VERSION}-${DL_ARCH}-musl.tar.gz"
+echo "downloading and untarring SPIRE EXTRAS from ${SPIRE_EXTRAS_DL}"
+curl -s -N -L "${SPIRE_EXTRAS_DL}" | tar xz
 mv spire-extras-${SPIRE_VERSION}/bin/oidc-discovery-provider spire-${SPIRE_VERSION}/bin/
 mv spire-extras-${SPIRE_VERSION}/conf/oidc-discovery-provider spire-${SPIRE_VERSION}/conf
 
@@ -235,54 +239,54 @@ eval $(docker exec qcon2023-ziti-controller-1 cat ziti.env | grep ZITI_PWD=)
 echo "getting openziti"
 curl -s -N -L https://github.com/openziti/ziti/releases/download/v${OPENZITI_VER}/ziti-${DL_ARCH}-${OPENZITI_VER}.tar.gz | tar xz -C ${TMP_DIR}
 
-${TMP_DIR}/ziti/ziti edge login $ziti_ctrl -u admin -p $ZITI_PWD -y
+${TMP_DIR}/ziti edge login $ziti_ctrl -u admin -p $ZITI_PWD -y
 echo "logged into ziti..."
 
-${TMP_DIR}/ziti/ziti edge delete service-policy demo-services-bind-policy
-${TMP_DIR}/ziti/ziti edge delete service-policy demo-services-dial-policy
-${TMP_DIR}/ziti/ziti edge delete config openziti-and-spire-intercept.v1
-${TMP_DIR}/ziti/ziti edge delete service openziti-and-spire-service
-${TMP_DIR}/ziti/ziti edge delete config openziti-only-intercept.v1
-${TMP_DIR}/ziti/ziti edge delete service openziti-only-service
-${TMP_DIR}/ziti/ziti edge delete identity zpire-jwtClient
-${TMP_DIR}/ziti/ziti edge delete identity zpire-jwtServer
-${TMP_DIR}/ziti/ziti edge delete auth-policy zpire-auth-policy
-${TMP_DIR}/ziti/ziti edge delete ext-jwt-signer zpire-ext-jwt
+${TMP_DIR}/ziti edge delete service-policy demo-services-bind-policy
+${TMP_DIR}/ziti edge delete service-policy demo-services-dial-policy
+${TMP_DIR}/ziti edge delete config openziti-and-spire-intercept.v1
+${TMP_DIR}/ziti edge delete service openziti-and-spire-service
+${TMP_DIR}/ziti edge delete config openziti-only-intercept.v1
+${TMP_DIR}/ziti edge delete service openziti-only-service
+${TMP_DIR}/ziti edge delete identity zpire-jwtClient
+${TMP_DIR}/ziti edge delete identity zpire-jwtServer
+${TMP_DIR}/ziti edge delete auth-policy zpire-auth-policy
+${TMP_DIR}/ziti edge delete ext-jwt-signer zpire-ext-jwt
 
 
-signer=$(${TMP_DIR}/ziti/ziti edge create ext-jwt-signer zpire-ext-jwt zpire -u http://${ETH0_IP}:8601/keys -a "${SPIFFE_SERVER_ID}")
-authPolicy=$(${TMP_DIR}/ziti/ziti edge create auth-policy zpire-auth-policy --primary-ext-jwt-allowed --primary-ext-jwt-allowed-signers ${signer})
+signer=$(${TMP_DIR}/ziti edge create ext-jwt-signer zpire-ext-jwt zpire -u http://${ETH0_IP}:8601/keys -a "${SPIFFE_SERVER_ID}")
+authPolicy=$(${TMP_DIR}/ziti edge create auth-policy zpire-auth-policy --primary-ext-jwt-allowed --primary-ext-jwt-allowed-signers ${signer})
 
 # create two identities for 'server' and 'clients'
-${TMP_DIR}/ziti/ziti edge create identity service zpire-jwtClient \
+${TMP_DIR}/ziti edge create identity service zpire-jwtClient \
   --auth-policy $authPolicy \
   --external-id "${SPIFFE_CLIENT_ID}" \
   -a demo-services-client
-${TMP_DIR}/ziti/ziti edge create identity service zpire-jwtServer \
+${TMP_DIR}/ziti edge create identity service zpire-jwtServer \
   --auth-policy $authPolicy \
   --external-id "${SPIFFE_SERVER_ID}" \
   -a demo-services-server
 
 # create two demo services
-${TMP_DIR}/ziti/ziti edge create config openziti-only-intercept.v1 intercept.v1 \
+${TMP_DIR}/ziti edge create config openziti-only-intercept.v1 intercept.v1 \
   '{"protocols":["tcp"],"addresses":["openziti.ziti"], "portRanges":[{"low":18082, "high":18082}]}'
-${TMP_DIR}/ziti/ziti edge create service openziti-only-service \
+${TMP_DIR}/ziti edge create service openziti-only-service \
   --configs openziti-only-intercept.v1 -a demo-services
 
-${TMP_DIR}/ziti/ziti edge create config openziti-and-spire-intercept.v1 intercept.v1 \
+${TMP_DIR}/ziti edge create config openziti-and-spire-intercept.v1 intercept.v1 \
   '{"protocols":["tcp"],"addresses":["openziti.spire.ziti"], "portRanges":[{"low":18082, "high":18082}]}'
-${TMP_DIR}/ziti/ziti edge create service openziti-and-spire-service \
+${TMP_DIR}/ziti edge create service openziti-and-spire-service \
   --configs openziti-and-spire-intercept.v1 -a demo-services
 
 # authorize identities to dial/bind
-${TMP_DIR}/ziti/ziti edge create service-policy demo-services-bind-policy Bind \
+${TMP_DIR}/ziti edge create service-policy demo-services-bind-policy Bind \
   --service-roles '#demo-services' \
   --identity-roles '#demo-services-server'
-${TMP_DIR}/ziti/ziti edge create service-policy demo-services-dial-policy Dial \
+${TMP_DIR}/ziti edge create service-policy demo-services-dial-policy Dial \
   --service-roles '#demo-services' \
   --identity-roles '#demo-services-client'
 
-${TMP_DIR}/ziti/ziti edge create identity user local.docker.user \
+${TMP_DIR}/ziti edge create identity user local.docker.user \
   -a demo-services-client \
   -o ${TMP_DIR}/local.docker.user.jwt
 
@@ -330,3 +334,4 @@ function debugAsClient {
     -dns localhost \
     -selector "unix:user:$USER"
 }
+cp ${TMP_DIR}/local.docker.user.jwt /mnt/v/temp
