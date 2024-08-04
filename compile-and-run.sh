@@ -228,7 +228,7 @@ curl -s https://get.openziti.io/dock/simplified-docker-compose.yml > $TMP_DIR/do
 curl -s https://get.openziti.io/dock/.env > $TMP_DIR/.env
 
 docker compose -f $TMP_DIR/docker-compose.yml --env-file=$TMP_DIR/.env -p qcon2023 down -v
-docker compose -f $TMP_DIR/docker-compose.yml --env-file=$TMP_DIR/.env -p qcon2023 up -d
+docker compose -f $TMP_DIR/docker-compose.yml --env-file=$TMP_DIR/.env -p qcon2023 up -d --remove-orphans
 
 ziti_ctrl="https://localhost:1280"
 while [[ "$(curl -w "%{http_code}" -m 1 -s -k -o /dev/null ${ziti_ctrl}/version)" != "200" ]]; do echo "waiting for ${ziti_ctrl}"; sleep 3; done; echo "controller online"
@@ -305,6 +305,10 @@ echo " "
 echo "   ${TMP_DIR}/spire-and-openziti-server"
 echo "   ${TMP_DIR}/spire-and-openziti-client 10 \"*\" 2 showcurl"
 echo " "
+echo "When done, stop the docker environment with:" 
+echo "   docker compose -f $TMP_DIR/docker-compose.yml down -v"
+echo "Then stop spire-related processes:"
+echo "   killall spire-server spire-agent oidc-discovery-provider"
 
 function deleteSvidBySelector {
   entry_id=$($SPIRE_CMD entry show -selector "unix:user:${USER}" | grep "Entry ID" | cut -d ":" -f2 | tr -d " ")
