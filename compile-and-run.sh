@@ -310,6 +310,11 @@ echo "   docker compose -f $TMP_DIR/docker-compose.yml down -v"
 echo "Then stop spire-related processes:"
 echo "   killall spire-server spire-agent oidc-discovery-provider"
 
+function cleanupOpenZitiAndSpire {
+  docker compose -f "$TMP_DIR/docker-compose.yml" down -v
+  killall spire-server spire-agent oidc-discovery-provider
+}
+
 function deleteSvidBySelector {
   entry_id=$($SPIRE_CMD entry show -selector "unix:user:${USER}" | grep "Entry ID" | cut -d ":" -f2 | tr -d " ")
   $SPIRE_CMD entry delete -entryID $entry_id
